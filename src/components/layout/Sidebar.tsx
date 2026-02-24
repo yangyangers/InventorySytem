@@ -1,9 +1,10 @@
 import { NavLink, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard, Package, ArrowLeftRight, Truck,
-  Users, BarChart3, Tag, LogOut, ChevronRight, Boxes,
+  Users, BarChart3, Tag, LogOut, ChevronRight, Sun, Moon, X,
 } from 'lucide-react'
 import { useAuth } from '@/store/auth'
+import { useTheme } from '@/store/theme'
 import { BIZ, BizId } from '@/types'
 import { avatarColor } from '@/lib/utils'
 import { BIZ_LOGOS } from '@/lib/logos'
@@ -20,8 +21,11 @@ const ADMIN = [
   { to: '/categories', label: 'Categories', icon: Tag },
 ]
 
-export default function Sidebar() {
+interface Props { open: boolean; onClose: () => void }
+
+export default function Sidebar({ open, onClose }: Props) {
   const { user, logout } = useAuth()
+  const { dark, toggle } = useTheme()
   const nav = useNavigate()
   if (!user) return null
 
@@ -29,135 +33,110 @@ export default function Sidebar() {
   const av      = avatarColor(user.full_name, user.avatar_color)
   const logoSrc = BIZ_LOGOS[user.business_id]
 
-  // Wellbuild logo is white-on-black — needs special bg handling
-  const isWhiteLogo = user.business_id === 'wellbuild' || user.business_id === 'tcchemical'
-
   return (
-    <aside style={{
-      width: 'var(--sidebar-w)',
-      background: 'linear-gradient(180deg, #1a2430 0%, #141b22 60%, #111820 100%)',
-      display: 'flex',
-      flexDirection: 'column',
-      height: '100vh',
-      flexShrink: 0,
-      overflow: 'hidden',
-      position: 'relative',
-      borderRight: '1px solid rgba(91,148,144,0.12)',
-    }}>
-
-      {/* Ambient teal glow top */}
+    <aside className={`sidebar${open ? ' open' : ''}`}>
+      {/* Ambient teal glow */}
       <div style={{
-        position: 'absolute', top: 0, left: 0, right: 0, height: 200,
-        background: 'radial-gradient(ellipse at 50% -10%, rgba(91,148,144,0.18) 0%, transparent 70%)',
+        position: 'absolute', top: 0, left: 0, right: 0, height: 160,
+        background: 'radial-gradient(ellipse at 50% -10%, rgba(91,148,144,0.14) 0%, transparent 70%)',
         pointerEvents: 'none', zIndex: 0,
       }} />
 
-      {/* ── IMS header logo ─────────────────────────── */}
+      {/* ── Company logo header — centered, no card ── */}
       <div style={{
-        padding: '18px 16px 14px',
-        borderBottom: '1px solid rgba(91,148,144,0.12)',
+        padding: '22px 16px 18px',
+        borderBottom: '1px solid rgba(255,255,255,0.06)',
         position: 'relative', zIndex: 1,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        minHeight: 88,
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{
-            width: 36, height: 36, borderRadius: 10,
-            background: 'linear-gradient(135deg, #d4a017, #e0b530)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            boxShadow: '0 4px 14px rgba(212,160,23,0.45)',
-            flexShrink: 0,
-          }}>
-            <Boxes size={19} color="#141b22" strokeWidth={2.5} />
-          </div>
-          <div>
-            <p style={{ color: '#fff', fontWeight: 800, fontSize: 15, fontFamily: 'var(--font-head)', letterSpacing: '-.02em', lineHeight: 1.1 }}>IMS</p>
-            <p style={{ color: 'rgba(255,255,255,0.28)', fontSize: 9.5, fontWeight: 700, letterSpacing: '.10em', textTransform: 'uppercase' }}>Inventory Platform</p>
-          </div>
-        </div>
+        {/* Logo — big and centered */}
+        <img
+          src={logoSrc}
+          alt={biz.name}
+          style={{
+            maxHeight: 56,
+            maxWidth: '80%',
+            objectFit: 'contain',
+            objectPosition: 'center',
+            display: 'block',
+            filter: 'brightness(0) invert(1)',
+            opacity: 0.93,
+          }}
+        />
+
+        {/* Mobile close button — only shown on mobile via CSS class */}
+        <button
+          onClick={onClose}
+          className="sidebar-close"
+          style={{
+            alignItems: 'center', justifyContent: 'center',
+            width: 28, height: 28, borderRadius: 7, flexShrink: 0,
+            background: 'rgba(255,255,255,0.06)',
+            border: '1px solid rgba(255,255,255,0.08)',
+            cursor: 'pointer', color: 'rgba(255,255,255,0.40)',
+            position: 'absolute', top: 16, right: 12,
+          }}
+        >
+          <X size={13} />
+        </button>
       </div>
 
-      {/* ── Business unit logo card ───────────────── */}
+      {/* ── Business unit label strip ─────────────── */}
       <div style={{
-        padding: '12px 12px 10px',
-        borderBottom: '1px solid rgba(91,148,144,0.10)',
+        padding: '8px 12px 10px',
+        borderBottom: '1px solid rgba(255,255,255,0.05)',
         position: 'relative', zIndex: 1,
       }}>
         <div style={{
-          borderRadius: 12,
-          background: isWhiteLogo ? 'rgba(0,0,0,0.40)' : 'rgba(255,255,255,0.96)',
-          border: `1px solid ${biz.color}28`,
-          overflow: 'hidden',
-          boxShadow: `0 2px 12px ${biz.color}18`,
+          background: `linear-gradient(90deg, ${biz.color}22, ${biz.color}10)`,
+          border: `1px solid ${biz.color}22`,
+          borderRadius: 8,
+          padding: '5px 11px',
+          display: 'flex', alignItems: 'center', gap: 7,
         }}>
-          {/* Logo image */}
           <div style={{
-            padding: user.business_id === 'tcchemical' ? '10px 16px' : '8px 16px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            minHeight: 56,
+            width: 6, height: 6, borderRadius: '50%',
+            background: biz.color, boxShadow: `0 0 6px ${biz.color}`,
+            flexShrink: 0,
+          }} />
+          <p style={{
+            color: biz.color, fontWeight: 700, fontSize: 11,
+            letterSpacing: '.06em', textTransform: 'uppercase',
+            fontFamily: 'var(--font-head)', lineHeight: 1,
+            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
           }}>
-            <img
-              src={logoSrc}
-              alt={biz.name}
-              style={{
-                maxHeight: user.business_id === 'tcchemical' ? 36 : 40,
-                maxWidth: '100%',
-                objectFit: 'contain',
-                display: 'block',
-              }}
-            />
-          </div>
-
-          {/* Business name strip */}
-          <div style={{
-            background: biz.color,
-            padding: '5px 12px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: 6,
+            {biz.name}
+          </p>
+          <span style={{
+            marginLeft: 'auto', color: 'rgba(255,255,255,0.28)',
+            fontSize: 9.5, whiteSpace: 'nowrap',
+            overflow: 'hidden', textOverflow: 'ellipsis',
           }}>
-            <p style={{
-              color: '#141b22',
-              fontWeight: 800,
-              fontSize: 10.5,
-              letterSpacing: '.06em',
-              textTransform: 'uppercase',
-              fontFamily: 'var(--font-head)',
-              lineHeight: 1,
-            }}>
-              {biz.name}
-            </p>
-            <p style={{
-              color: 'rgba(20,27,34,0.60)',
-              fontSize: 9.5,
-              fontWeight: 600,
-              letterSpacing: '.02em',
-              whiteSpace: 'nowrap',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-            }}>
-              {biz.desc}
-            </p>
-          </div>
+            {biz.desc}
+          </span>
         </div>
       </div>
 
       {/* ── Navigation ───────────────────────────── */}
-      <nav style={{ flex: 1, padding: '12px 10px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 1, position: 'relative', zIndex: 1 }}>
-        <p style={{ color: 'rgba(255,255,255,0.22)', fontSize: 9.5, fontWeight: 800, letterSpacing: '.14em', textTransform: 'uppercase', padding: '4px 12px 8px' }}>Menu</p>
+      <nav style={{
+        flex: 1, padding: '10px 9px',
+        overflowY: 'auto', display: 'flex', flexDirection: 'column',
+        gap: 1, position: 'relative', zIndex: 1,
+      }}>
+        <p style={{ color: 'rgba(255,255,255,0.20)', fontSize: 9.5, fontWeight: 700, letterSpacing: '.14em', textTransform: 'uppercase', padding: '4px 11px 7px' }}>Menu</p>
 
         {MAIN.map(({ to, label, icon: Icon, end }) => (
           <NavLink key={to} to={to} end={end} className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}>
             {({ isActive }) => (
               <>
                 <div style={{
-                  width: 30, height: 30, borderRadius: 8, flexShrink: 0,
+                  width: 28, height: 28, borderRadius: 7, flexShrink: 0,
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  background: isActive ? 'rgba(212,160,23,0.22)' : 'transparent',
-                  transition: 'background .15s',
+                  background: isActive ? 'rgba(212,160,23,0.18)' : 'rgba(255,255,255,0.04)',
+                  transition: 'background .14s',
                 }}>
-                  <Icon size={15} strokeWidth={isActive ? 2.5 : 2} />
+                  <Icon size={14} strokeWidth={isActive ? 2.5 : 2} />
                 </div>
                 <span style={{ flex: 1 }}>{label}</span>
               </>
@@ -167,19 +146,19 @@ export default function Sidebar() {
 
         {user.role === 'admin' && (
           <>
-            <div style={{ margin: '10px 10px 2px', borderTop: '1px solid rgba(91,148,144,0.14)' }} />
-            <p style={{ color: 'rgba(255,255,255,0.22)', fontSize: 9.5, fontWeight: 800, letterSpacing: '.14em', textTransform: 'uppercase', padding: '6px 12px 8px' }}>Admin</p>
+            <div style={{ margin: '9px 9px 2px', borderTop: '1px solid rgba(255,255,255,0.06)' }} />
+            <p style={{ color: 'rgba(255,255,255,0.20)', fontSize: 9.5, fontWeight: 700, letterSpacing: '.14em', textTransform: 'uppercase', padding: '5px 11px 7px' }}>Admin</p>
             {ADMIN.map(({ to, label, icon: Icon }) => (
               <NavLink key={to} to={to} className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}>
                 {({ isActive }) => (
                   <>
                     <div style={{
-                      width: 30, height: 30, borderRadius: 8, flexShrink: 0,
+                      width: 28, height: 28, borderRadius: 7, flexShrink: 0,
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      background: isActive ? 'rgba(212,160,23,0.22)' : 'transparent',
-                      transition: 'background .15s',
+                      background: isActive ? 'rgba(212,160,23,0.18)' : 'rgba(255,255,255,0.04)',
+                      transition: 'background .14s',
                     }}>
-                      <Icon size={15} strokeWidth={isActive ? 2.5 : 2} />
+                      <Icon size={14} strokeWidth={isActive ? 2.5 : 2} />
                     </div>
                     <span style={{ flex: 1 }}>{label}</span>
                   </>
@@ -190,61 +169,101 @@ export default function Sidebar() {
         )}
       </nav>
 
-      {/* Ambient bottom glow */}
+      {/* Bottom ambient glow */}
       <div style={{
-        position: 'absolute', bottom: 0, left: 0, right: 0, height: 140,
-        background: 'radial-gradient(ellipse at 50% 120%, rgba(78,107,101,0.22) 0%, transparent 70%)',
+        position: 'absolute', bottom: 0, left: 0, right: 0, height: 100,
+        background: 'radial-gradient(ellipse at 50% 120%, rgba(78,107,101,0.18) 0%, transparent 70%)',
         pointerEvents: 'none', zIndex: 0,
       }} />
 
-      {/* ── User footer ──────────────────────────── */}
-      <div style={{ borderTop: '1px solid rgba(91,148,144,0.12)', padding: '10px 10px 12px', position: 'relative', zIndex: 1 }}>
+      {/* ── Footer ───────────────────────────────── */}
+      <div style={{
+        borderTop: '1px solid rgba(255,255,255,0.06)',
+        padding: '9px 9px 11px', position: 'relative', zIndex: 1,
+      }}>
+        {/* Profile link */}
         <NavLink
           to="/profile"
           className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}
-          style={{ marginBottom: 4, padding: '10px 12px' }}
+          style={{ marginBottom: 6, padding: '9px 11px' }}
         >
           <div style={{
-            width: 32, height: 32, borderRadius: 9, flexShrink: 0,
-            background: `linear-gradient(135deg, ${av} 0%, ${av}bb 100%)`,
+            width: 30, height: 30, borderRadius: 8, flexShrink: 0,
+            background: `linear-gradient(135deg, ${av}, ${av}bb)`,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontWeight: 800, fontSize: 14, color: '#fff',
-            boxShadow: `0 4px 12px ${av}70`,
-            fontFamily: 'var(--font-head)',
+            fontWeight: 700, fontSize: 13, color: '#fff',
+            boxShadow: `0 3px 10px ${av}60`,
           }}>
             {user.full_name[0]?.toUpperCase()}
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <p style={{ color: 'rgba(255,255,255,0.90)', fontSize: 13, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.2 }}>
+            <p style={{ color: 'rgba(255,255,255,0.88)', fontSize: 13, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', lineHeight: 1.2 }}>
               {user.full_name}
             </p>
-            <p style={{ color: 'rgba(255,255,255,0.30)', fontSize: 11, fontFamily: 'var(--mono)', lineHeight: 1.2 }}>@{user.username}</p>
+            <p style={{ color: 'rgba(255,255,255,0.28)', fontSize: 11, fontFamily: 'var(--mono)', lineHeight: 1.2 }}>
+              @{user.username}
+            </p>
           </div>
-          <ChevronRight size={13} style={{ color: 'rgba(255,255,255,0.25)', flexShrink: 0 }} />
+          <ChevronRight size={12} style={{ color: 'rgba(255,255,255,0.20)', flexShrink: 0 }} />
         </NavLink>
 
+        {/* Dark mode toggle — full width row, clearly separate from sign-out */}
         <button
-          onClick={() => { logout(); nav('/login') }}
+          onClick={toggle}
+          title={dark ? 'Switch to light mode' : 'Switch to dark mode'}
           style={{
-            display: 'flex', alignItems: 'center', gap: 10,
-            width: '100%', padding: '8px 12px', borderRadius: 8,
-            background: 'none', border: 'none', cursor: 'pointer',
-            color: 'rgba(255,255,255,0.30)', fontSize: 13, fontFamily: 'var(--font)',
-            transition: 'all .15s',
+            display: 'flex', alignItems: 'center', gap: 8,
+            width: '100%', padding: '8px 11px', borderRadius: 7,
+            background: dark ? 'rgba(212,160,23,0.11)' : 'rgba(255,255,255,0.04)',
+            border: `1px solid ${dark ? 'rgba(212,160,23,0.20)' : 'rgba(255,255,255,0.07)'}`,
+            cursor: 'pointer',
+            color: dark ? '#d4a017' : 'rgba(255,255,255,0.40)',
+            fontSize: 12.5, fontFamily: 'var(--font)',
+            transition: 'all .18s',
+            marginBottom: 4,
           }}
           onMouseEnter={e => {
             const el = e.currentTarget as HTMLElement
-            el.style.background = 'rgba(212,90,90,0.12)'
-            el.style.color = '#f5b8b8'
+            el.style.background = dark ? 'rgba(212,160,23,0.18)' : 'rgba(255,255,255,0.08)'
+            el.style.color = dark ? '#e8b820' : 'rgba(255,255,255,0.65)'
+          }}
+          onMouseLeave={e => {
+            const el = e.currentTarget as HTMLElement
+            el.style.background = dark ? 'rgba(212,160,23,0.11)' : 'rgba(255,255,255,0.04)'
+            el.style.color = dark ? '#d4a017' : 'rgba(255,255,255,0.40)'
+          }}
+        >
+          {dark ? <Sun size={14} /> : <Moon size={14} />}
+          <span style={{ fontWeight: 500 }}>{dark ? 'Light mode' : 'Dark mode'}</span>
+        </button>
+
+        {/* Sign out — full width row, clearly readable */}
+        <button
+          onClick={() => { logout(); nav('/login') }}
+          style={{
+            display: 'flex', alignItems: 'center', gap: 8,
+            width: '100%', padding: '8px 11px', borderRadius: 7,
+            background: 'none', border: '1px solid transparent',
+            cursor: 'pointer',
+            color: 'rgba(255,255,255,0.35)',
+            fontSize: 12.5, fontFamily: 'var(--font)',
+            transition: 'all .14s',
+          }}
+          onMouseEnter={e => {
+            const el = e.currentTarget as HTMLElement
+            el.style.background = 'rgba(201,78,78,0.12)'
+            el.style.color = '#fca5a5'
+            el.style.borderColor = 'rgba(201,78,78,0.20)'
           }}
           onMouseLeave={e => {
             const el = e.currentTarget as HTMLElement
             el.style.background = 'none'
-            el.style.color = 'rgba(255,255,255,0.30)'
+            el.style.color = 'rgba(255,255,255,0.35)'
+            el.style.borderColor = 'transparent'
           }}
         >
           <LogOut size={14} />
-          <span>Sign Out</span>
+          <span style={{ fontWeight: 500 }}>Sign Out</span>
         </button>
       </div>
     </aside>

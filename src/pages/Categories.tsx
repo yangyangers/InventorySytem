@@ -45,7 +45,7 @@ export default function Categories() {
     <div className="anim-fade-up">
       <div style={{ marginBottom: 22 }}>
         <h2 style={{ fontSize: 22, fontWeight: 800, color: 'var(--ink)', letterSpacing: '-.02em' }}>Categories</h2>
-        <p style={{ color: 'var(--ink-3)', fontSize: 13.5, marginTop: 3 }}>Organize your products by category</p>
+        <p style={{ color: 'var(--c-text3)', fontSize: 13.5, marginTop: 3 }}>Organize your products by category</p>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '350px 1fr', gap: 20, alignItems: 'start' }}>
@@ -80,8 +80,8 @@ export default function Categories() {
             ? <div style={{ padding: 16 }}>{Array.from({length:5}).map((_,i)=><div key={i} className="skel" style={{ height:48, marginBottom:8, borderRadius:10 }} />)}</div>
             : cats.length === 0
             ? <div style={{ padding:'48px 20px', textAlign:'center' }}>
-                <Tag size={36} style={{ color:'var(--ink-4)', margin:'0 auto 12px', display:'block', opacity:.5 }} />
-                <p style={{ color:'var(--ink-3)' }}>No categories yet. Add your first one!</p>
+                <Tag size={36} style={{ color:'var(--c-text4)', margin:'0 auto 12px', display:'block', opacity:.5 }} />
+                <p style={{ color:'var(--c-text3)' }}>No categories yet. Add your first one!</p>
               </div>
             : <div>
                 {cats.map((c, i) => (
@@ -94,7 +94,7 @@ export default function Categories() {
                     </div>
                     <div style={{ flex:1 }}>
                       <p style={{ fontWeight:600, color:'var(--ink)', fontSize:13.5 }}>{c.name}</p>
-                      {c.description && <p style={{ fontSize:12, color:'var(--ink-3)', marginTop:1 }}>{c.description}</p>}
+                      {c.description && <p style={{ fontSize:12, color:'var(--c-text3)', marginTop:1 }}>{c.description}</p>}
                     </div>
                     <button className="btn-icon danger" onClick={() => setDelCat(c)}><Trash2 size={13} /></button>
                   </div>

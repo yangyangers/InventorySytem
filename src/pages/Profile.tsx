@@ -75,7 +75,7 @@ export default function Profile() {
 
   if (loading || !dbUser) return (
     <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height: 320 }}>
-      <Loader size={26} className="spin" style={{ color: 'var(--ink-4)' }} />
+      <Loader size={26} className="spin" style={{ color: 'var(--c-text4)' }} />
     </div>
   )
 
@@ -102,21 +102,21 @@ export default function Profile() {
               width: 76, height: 76, borderRadius: 22,
               background: `linear-gradient(135deg, ${av} 0%, ${av}cc 100%)`,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 32, fontWeight: 800, color: '#fff',
+              fontSize: 32, fontWeight: 800, color: 'var(--c-white)',
               boxShadow: `0 8px 28px ${av}55, 0 0 0 3px white`,
               transition: 'all .3s', fontFamily: 'var(--font-head)',
             }}>
               {init}
             </div>
             {dbUser.role === 'admin' && (
-              <div style={{ position: 'absolute', bottom: -4, right: -4, width: 24, height: 24, borderRadius: 8, background: 'var(--gold)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2.5px solid #fff', boxShadow: '0 2px 6px rgba(212,160,23,.4)' }}>
-                <Shield size={12} color="#fff" />
+              <div style={{ position: 'absolute', bottom: -4, right: -4, width: 24, height: 24, borderRadius: 8, background: 'var(--gold)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '2.5px solid var(--c-white)', boxShadow: '0 2px 6px rgba(212,160,23,.4)' }}>
+                <Shield size={12} color="var(--c-white)" />
               </div>
             )}
           </div>
           <div style={{ flex: 1, paddingBottom: 4 }}>
             <h2 style={{ fontSize: 22, fontWeight: 800, color: 'var(--ink)', letterSpacing: '-.03em', fontFamily: 'var(--font-head)' }}>{dbUser.full_name}</h2>
-            <p style={{ fontSize: 13, color: 'var(--ink-3)', marginTop: 3 }}>@{dbUser.username}</p>
+            <p style={{ fontSize: 13, color: 'var(--c-text3)', marginTop: 3 }}>@{dbUser.username}</p>
             <div style={{ display: 'flex', gap: 7, marginTop: 10, flexWrap: 'wrap' }}>
               <span className="badge" style={{ background: biz.bg, color: bc, fontSize: 11.5 }}>{biz.name}</span>
               <span className={`badge ${dbUser.role === 'admin' ? 'badge-coral' : 'badge-navy'}`} style={{ fontSize: 11.5 }}>
@@ -149,7 +149,7 @@ export default function Profile() {
               <Field label="Full Name" required><input className="input" required value={pf.full_name} onChange={e => setPf(p=>({...p,full_name:e.target.value}))} /></Field>
               <Field label="Username" required>
                 <div style={{ position: 'relative' }}>
-                  <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', fontFamily: 'var(--mono)', fontSize: 13.5, color: 'var(--ink-3)', fontWeight: 500 }}>@</span>
+                  <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', fontFamily: 'var(--mono)', fontSize: 13.5, color: 'var(--c-text3)', fontWeight: 500 }}>@</span>
                   <input className="input input-mono" style={{ paddingLeft: 27 }} required value={pf.username} onChange={e => setPf(p=>({...p,username:e.target.value.toLowerCase()}))} />
                 </div>
               </Field>
@@ -167,7 +167,7 @@ export default function Profile() {
             <div className="grid-2">
               <Field label="Role">
                 <div className="input" style={{ background: 'var(--bg)', cursor: 'not-allowed', opacity: .65, display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <Shield size={14} style={{ color: dbUser.role === 'admin' ? 'var(--gold)' : 'var(--ink-3)' }} />
+                  <Shield size={14} style={{ color: dbUser.role === 'admin' ? 'var(--gold)' : 'var(--c-text3)' }} />
                   {dbUser.role}
                 </div>
               </Field>
@@ -191,7 +191,7 @@ export default function Profile() {
       {tab === 'security' && (
         <div className="card anim-scale-up" style={{ padding: 28 }}>
           <h3 style={{ fontSize: 15, fontWeight: 800, color: 'var(--ink)', marginBottom: 6, fontFamily: 'var(--font-head)' }}>Change Password</h3>
-          <p style={{ fontSize: 13, color: 'var(--ink-3)', marginBottom: 22 }}>Use a strong password with at least 8 characters — mix letters, numbers, and symbols.</p>
+          <p style={{ fontSize: 13, color: 'var(--c-text3)', marginBottom: 22 }}>Use a strong password with at least 8 characters — mix letters, numbers, and symbols.</p>
           <form onSubmit={savePassword} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             <Field label="Current Password" required>
               <input className="input" type="password" required value={pw.cur} onChange={e => setPw(p=>({...p,cur:e.target.value}))} placeholder="Your current password" />
@@ -222,8 +222,8 @@ export default function Profile() {
               ['Auto-logout', 'Manual sign out or browser data clear'],
             ].map(([k, v]) => (
               <div key={k} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 14px', background: 'var(--bg)', borderRadius: 8, border: '1px solid var(--border)', marginBottom: 6 }}>
-                <span style={{ fontSize: 13, color: 'var(--ink-3)', fontWeight: 600 }}>{k}</span>
-                <span style={{ fontSize: 13, color: 'var(--ink-2)' }}>{v}</span>
+                <span style={{ fontSize: 13, color: 'var(--c-text3)', fontWeight: 600 }}>{k}</span>
+                <span style={{ fontSize: 13, color: 'var(--c-text2)' }}>{v}</span>
               </div>
             ))}
           </div>
@@ -234,16 +234,16 @@ export default function Profile() {
       {tab === 'appearance' && (
         <div className="card anim-scale-up" style={{ padding: 28 }}>
           <h3 style={{ fontSize: 15, fontWeight: 800, color: 'var(--ink)', marginBottom: 6, fontFamily: 'var(--font-head)' }}>Avatar Color</h3>
-          <p style={{ fontSize: 13, color: 'var(--ink-3)', marginBottom: 22 }}>Your avatar color shows in the sidebar, header, and staff table.</p>
+          <p style={{ fontSize: 13, color: 'var(--c-text3)', marginBottom: 22 }}>Your avatar color shows in the sidebar, header, and staff table.</p>
 
           {/* Live preview */}
           <div className="card-inset" style={{ padding: '18px 20px', display: 'flex', alignItems: 'center', gap: 18, marginBottom: 24, borderRadius: 14 }}>
-            <div style={{ width: 64, height: 64, borderRadius: 20, background: `linear-gradient(135deg, ${color} 0%, ${color}cc 100%)`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26, fontWeight: 800, color: '#fff', boxShadow: `0 8px 24px ${color}55`, transition: 'all .3s', flexShrink: 0, fontFamily: 'var(--font-head)' }}>
+            <div style={{ width: 64, height: 64, borderRadius: 20, background: `linear-gradient(135deg, ${color} 0%, ${color}cc 100%)`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 26, fontWeight: 800, color: 'var(--c-white)', boxShadow: `0 8px 24px ${color}55`, transition: 'all .3s', flexShrink: 0, fontFamily: 'var(--font-head)' }}>
               {init}
             </div>
             <div>
               <p style={{ fontWeight: 700, color: 'var(--ink)', fontSize: 15 }}>{pf.full_name}</p>
-              <p style={{ fontSize: 12.5, color: 'var(--ink-3)' }}>@{pf.username}</p>
+              <p style={{ fontSize: 12.5, color: 'var(--c-text3)' }}>@{pf.username}</p>
               <p style={{ fontSize: 11.5, fontWeight: 700, marginTop: 6, color }}>↑ Live preview</p>
             </div>
           </div>
@@ -278,7 +278,7 @@ function Field({ label, children, required, hint }: { label: string; children: R
     <div>
       <label className="label">{label}{required && <span style={{ color: 'var(--gold)', marginLeft: 3 }}>*</span>}</label>
       {children}
-      {hint && <p style={{ fontSize: 11.5, color: 'var(--ink-3)', marginTop: 4 }}>{hint}</p>}
+      {hint && <p style={{ fontSize: 11.5, color: 'var(--c-text3)', marginTop: 4 }}>{hint}</p>}
     </div>
   )
 }

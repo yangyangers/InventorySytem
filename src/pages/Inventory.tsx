@@ -122,9 +122,9 @@ export default function Inventory() {
   const pages = Math.ceil(total / PER)
 
   const TX_OPTS = [
-    { t: 'stock_in'   as const, label: '▲ Stock In',   color: 'var(--green)', bg: 'var(--green-l)', border: 'var(--green)' },
-    { t: 'stock_out'  as const, label: '▼ Stock Out',  color: 'var(--red)',   bg: 'var(--red-l)',   border: 'var(--red)'   },
-    { t: 'adjustment' as const, label: '⊙ Adjust',     color: 'var(--teal)',  bg: 'var(--teal-l)',  border: 'var(--teal)'  },
+    { t: 'stock_in'   as const, label: '▲ Stock In',   color: 'var(--green)', bg: 'var(--c-green-dim)', border: 'var(--green)' },
+    { t: 'stock_out'  as const, label: '▼ Stock Out',  color: 'var(--red)',   bg: 'var(--c-red-dim)',   border: 'var(--red)'   },
+    { t: 'adjustment' as const, label: '⊙ Adjust',     color: 'var(--teal)',  bg: 'var(--c-teal-dim)',  border: 'var(--teal)'  },
   ]
 
   return (
@@ -188,17 +188,17 @@ export default function Inventory() {
                     <tr key={p.id}>
                       <td style={{ maxWidth: 220 }}>
                         <p style={{ fontWeight: 700, color: 'var(--ink)', fontSize: 14 }}>{p.name}</p>
-                        {p.description && <p style={{ fontSize: 11.5, color: 'var(--ink-3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 200 }}>{p.description}</p>}
+                        {p.description && <p style={{ fontSize: 11.5, color: 'var(--c-text3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 200 }}>{p.description}</p>}
                       </td>
                       <td><code className="mono badge badge-navy" style={{ fontSize: 11.5, borderRadius: 6, padding: '3px 8px' }}>{p.sku}</code></td>
-                      <td style={{ fontSize: 13, color: 'var(--ink-2)' }}>{(p as any).categories?.name ?? <span style={{ color: 'var(--ink-4)' }}>—</span>}</td>
-                      <td style={{ fontSize: 13, color: 'var(--ink-2)' }}>{(p as any).suppliers?.name ?? <span style={{ color: 'var(--ink-4)' }}>—</span>}</td>
+                      <td style={{ fontSize: 13, color: 'var(--c-text2)' }}>{(p as any).categories?.name ?? <span style={{ color: 'var(--c-text4)' }}>—</span>}</td>
+                      <td style={{ fontSize: 13, color: 'var(--c-text2)' }}>{(p as any).suppliers?.name ?? <span style={{ color: 'var(--c-text4)' }}>—</span>}</td>
                       <td>
                         <span style={{ fontWeight: 800, color: 'var(--ink)', fontSize: 15, fontFamily: 'var(--font-head)' }}>{p.quantity}</span>
-                        <span style={{ color: 'var(--ink-3)', fontSize: 12, marginLeft: 4 }}>{p.unit}</span>
+                        <span style={{ color: 'var(--c-text3)', fontSize: 12, marginLeft: 4 }}>{p.unit}</span>
                       </td>
                       <td><span className={`badge ${st.cls}`}>{st.label}</span></td>
-                      <td style={{ fontSize: 13, color: 'var(--ink-2)' }}>{php(p.cost_price)}</td>
+                      <td style={{ fontSize: 13, color: 'var(--c-text2)' }}>{php(p.cost_price)}</td>
                       <td style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--ink)' }}>{php(p.selling_price)}</td>
                       <td>
                         <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end' }}>
@@ -225,7 +225,7 @@ export default function Inventory() {
         {/* Pagination */}
         {pages > 1 && (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '13px 18px', borderTop: '1px solid var(--border)', background: 'var(--bg)' }}>
-            <p style={{ fontSize: 13, color: 'var(--ink-3)' }}>
+            <p style={{ fontSize: 13, color: 'var(--c-text3)' }}>
               Showing {(page-1)*PER+1}–{Math.min(page*PER, total)} of <strong>{total}</strong>
             </p>
             <div style={{ display: 'flex', gap: 5, alignItems: 'center' }}>
@@ -247,7 +247,7 @@ export default function Inventory() {
           onClose={closeAll}
           width={560}
           icon={<Package size={20} />}
-          iconBg="var(--gold-l)"
+          iconBg="var(--c-gold-dim)"
           iconColor="var(--gold)"
           footer={
             <>
@@ -321,7 +321,7 @@ export default function Inventory() {
           onClose={closeAll}
           width={460}
           icon={<ArrowLeftRight size={20} />}
-          iconBg="var(--green-l)"
+          iconBg="var(--c-green-dim)"
           iconColor="var(--green)"
           footer={
             <>
@@ -343,8 +343,8 @@ export default function Inventory() {
                     style={{
                       padding: '12px 8px', borderRadius: 'var(--radius)',
                       border: "2px solid " + (tx.type === t ? border : "var(--border)"),
-                      background: tx.type === t ? bg : 'var(--white)',
-                      color: tx.type === t ? color : 'var(--ink-3)',
+                      background: tx.type === t ? bg : 'var(--c-white)',
+                      color: tx.type === t ? color : 'var(--c-text3)',
                       fontWeight: 700, fontSize: 12.5, cursor: 'pointer',
                       transition: 'all .18s', fontFamily: 'var(--font)',
                       textAlign: 'center', lineHeight: 1.4,

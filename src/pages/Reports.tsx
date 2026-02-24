@@ -54,11 +54,11 @@ export default function Reports() {
         <StatCard label="Products" value={loading ? '—' : prods.length}
           icon={<Package size={22} />} color="#4e6b65" bg="#eff3f2" accentColor="#4e6b65" sub="active items" />
         <StatCard label="Inventory Cost" value={loading ? '—' : php(cost)}
-          icon={<DollarSign size={22} />} color="var(--green)" bg="var(--green-l)" accentColor="#10b981" sub="at cost price" />
+          icon={<DollarSign size={22} />} color="var(--green)" bg="var(--c-green-dim)" accentColor="#10b981" sub="at cost price" />
         <StatCard label="Retail Value" value={loading ? '—' : php(retail)}
-          icon={<TrendingUp size={22} />} color="var(--teal)" bg="var(--teal-l)" accentColor="#5b9490" sub="at selling price" />
+          icon={<TrendingUp size={22} />} color="var(--teal)" bg="var(--c-teal-dim)" accentColor="#5b9490" sub="at selling price" />
         <StatCard label="Gross Margin" value={loading ? '—' : `${margin}%`}
-          icon={<BarChart3 size={22} />} color="var(--gold)" bg="var(--gold-l)" accentColor="var(--gold)"
+          icon={<BarChart3 size={22} />} color="var(--gold)" bg="var(--c-gold-dim)" accentColor="var(--gold)"
           sub={loading ? '' : `${php(profit)} potential profit`} />
       </div>
 
@@ -68,9 +68,9 @@ export default function Reports() {
           <h3 style={{ fontSize: 14.5, fontWeight: 800, color: 'var(--ink)', marginBottom: 18, fontFamily: 'var(--font-head)' }}>Transaction Breakdown</h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             {[
-              { label: 'Total Units Received', val: txData.in, sign: '+', color: 'var(--green)', bg: 'var(--green-l)', border: '#86efac', Icon: ArrowUpRight },
-              { label: 'Total Units Dispatched', val: txData.out, sign: '−', color: 'var(--red)', bg: 'var(--red-l)', border: '#fca5a5', Icon: ArrowDownRight },
-              { label: 'Adjustments Made', val: txData.adj, sign: '⊙', color: 'var(--teal)', bg: 'var(--teal-l)', border: '#67e8f9', Icon: Layers },
+              { label: 'Total Units Received', val: txData.in, sign: '+', color: 'var(--green)', bg: 'var(--c-green-dim)', border: '#86efac', Icon: ArrowUpRight },
+              { label: 'Total Units Dispatched', val: txData.out, sign: '−', color: 'var(--red)', bg: 'var(--c-red-dim)', border: '#fca5a5', Icon: ArrowDownRight },
+              { label: 'Adjustments Made', val: txData.adj, sign: '⊙', color: 'var(--teal)', bg: 'var(--c-teal-dim)', border: '#67e8f9', Icon: Layers },
             ].map(({ label, val, sign, color, bg, border, Icon }) => (
               <div key={label} style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -78,10 +78,10 @@ export default function Reports() {
                 background: bg, border: `1.5px solid ${border}`,
               }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                  <div style={{ width: 36, height: 36, borderRadius: 10, background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 6px rgba(0,0,0,0.06)' }}>
+                  <div style={{ width: 36, height: 36, borderRadius: 10, background: 'var(--c-white)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 6px rgba(0,0,0,0.06)' }}>
                     <Icon size={16} style={{ color }} />
                   </div>
-                  <span style={{ fontSize: 13.5, color: 'var(--ink-2)', fontWeight: 600 }}>{label}</span>
+                  <span style={{ fontSize: 13.5, color: 'var(--c-text2)', fontWeight: 600 }}>{label}</span>
                 </div>
                 <span style={{ fontSize: 20, fontWeight: 800, color, fontFamily: 'var(--font-head)' }}>
                   {sign}{val.toLocaleString()}
@@ -89,7 +89,7 @@ export default function Reports() {
               </div>
             ))}
             <div style={{ padding: '12px 18px', borderRadius: 12, background: 'var(--bg)', border: '1.5px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontSize: 13.5, color: 'var(--ink-2)', fontWeight: 600 }}>Total Transactions</span>
+              <span style={{ fontSize: 13.5, color: 'var(--c-text2)', fontWeight: 600 }}>Total Transactions</span>
               <span style={{ fontSize: 20, fontWeight: 800, color: 'var(--ink)', fontFamily: 'var(--font-head)' }}>{txData.total.toLocaleString()}</span>
             </div>
           </div>
@@ -107,10 +107,10 @@ export default function Reports() {
             return (
               <div key={label} style={{ marginBottom: 20 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 6 }}>
-                  <span style={{ fontSize: 13.5, color: 'var(--ink-2)', fontWeight: 600 }}>{label}</span>
+                  <span style={{ fontSize: 13.5, color: 'var(--c-text2)', fontWeight: 600 }}>{label}</span>
                   <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
                     <span style={{ fontSize: 20, fontWeight: 800, color, fontFamily: 'var(--font-head)' }}>{count}</span>
-                    <span style={{ fontSize: 12, color: 'var(--ink-3)' }}>{pct}%</span>
+                    <span style={{ fontSize: 12, color: 'var(--c-text3)' }}>{pct}%</span>
                   </div>
                 </div>
                 <div className="progress-track">
@@ -122,7 +122,7 @@ export default function Reports() {
 
           {/* Summary donut-like bar */}
           <div style={{ marginTop: 24, padding: '16px', background: 'var(--bg)', borderRadius: 12, border: '1px solid var(--border)' }}>
-            <p style={{ fontSize: 12, color: 'var(--ink-3)', fontWeight: 700, marginBottom: 10, letterSpacing: '.04em', textTransform: 'uppercase' }}>Composition</p>
+            <p style={{ fontSize: 12, color: 'var(--c-text3)', fontWeight: 700, marginBottom: 10, letterSpacing: '.04em', textTransform: 'uppercase' }}>Composition</p>
             <div style={{ display: 'flex', height: 8, borderRadius: 4, overflow: 'hidden', gap: 2 }}>
               {[
                 { count: healthy.length, color: '#10b981' },
@@ -134,7 +134,7 @@ export default function Reports() {
             </div>
             <div style={{ display: 'flex', gap: 14, marginTop: 8 }}>
               {[['#10b981','Healthy'],['#f59e0b','Low'],['#ef4444','Empty']].map(([c,l]) => (
-                <div key={l} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11.5, color: 'var(--ink-3)' }}>
+                <div key={l} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11.5, color: 'var(--c-text3)' }}>
                   <div style={{ width: 8, height: 8, borderRadius: 2, background: c as string }} />{l}
                 </div>
               ))}
@@ -151,7 +151,7 @@ export default function Reports() {
           </div>
           <div>
             <h3 style={{ fontSize: 14.5, fontWeight: 800, color: 'var(--ink)', fontFamily: 'var(--font-head)' }}>Top Products by Inventory Value</h3>
-            <p style={{ fontSize: 12, color: 'var(--ink-3)' }}>Ranked by quantity × cost price</p>
+            <p style={{ fontSize: 12, color: 'var(--c-text3)' }}>Ranked by quantity × cost price</p>
           </div>
         </div>
         <div style={{ overflowX: 'auto' }}>
@@ -167,17 +167,17 @@ export default function Reports() {
                   const pct = Math.round((v / maxVal) * 100)
                   return (
                     <tr key={p.id}>
-                      <td style={{ fontWeight: 800, color: i < 3 ? 'var(--gold)' : 'var(--ink-3)', fontFamily: 'var(--mono)', fontSize: 12, width: 36 }}>
+                      <td style={{ fontWeight: 800, color: i < 3 ? 'var(--gold)' : 'var(--c-text3)', fontFamily: 'var(--mono)', fontSize: 12, width: 36 }}>
                         {i < 3 ? ['🥇','🥈','🥉'][i] : `#${i+1}`}
                       </td>
                       <td style={{ fontWeight: 700, color: 'var(--ink)', fontSize: 14 }}>{p.name}</td>
-                      <td style={{ fontSize: 13, color: 'var(--ink-3)' }}>{(p as any).categories?.name ?? '—'}</td>
-                      <td style={{ fontWeight: 700 }}>{p.quantity} <span style={{ fontSize: 12, color: 'var(--ink-3)', fontWeight: 500 }}>{p.unit}</span></td>
+                      <td style={{ fontSize: 13, color: 'var(--c-text3)' }}>{(p as any).categories?.name ?? '—'}</td>
+                      <td style={{ fontWeight: 700 }}>{p.quantity} <span style={{ fontSize: 12, color: 'var(--c-text3)', fontWeight: 500 }}>{p.unit}</span></td>
                       <td style={{ fontSize: 13 }}>{php(p.cost_price)}</td>
                       <td style={{ fontWeight: 800, color: 'var(--green)', fontSize: 14, fontFamily: 'var(--font-head)' }}>{php(v)}</td>
-                      <td style={{ fontSize: 13, color: 'var(--ink-2)' }}>{php(p.quantity * p.selling_price)}</td>
+                      <td style={{ fontSize: 13, color: 'var(--c-text2)' }}>{php(p.quantity * p.selling_price)}</td>
                       <td style={{ width: 120 }}>
-                        <div style={{ height: 6, borderRadius: 3, background: 'var(--bg-2)', overflow: 'hidden' }}>
+                        <div style={{ height: 6, borderRadius: 3, background: 'var(--c-bg2)', overflow: 'hidden' }}>
                           <div style={{ height: '100%', width: `${pct}%`, borderRadius: 3, background: 'linear-gradient(90deg, #5b9490, #7cb8b4)', transition: 'width .6s ease' }} />
                         </div>
                       </td>

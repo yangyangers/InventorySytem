@@ -42,7 +42,7 @@ export function Transactions() {
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
         <div>
           <h2 style={{ fontSize: 22, fontWeight: 800, color: 'var(--ink)', letterSpacing: '-.02em' }}>Transactions</h2>
-          <p style={{ color: 'var(--ink-3)', fontSize: 13.5, marginTop: 3 }}>{total} total records</p>
+          <p style={{ color: 'var(--c-text3)', fontSize: 13.5, marginTop: 3 }}>{total} total records</p>
         </div>
       </div>
 
@@ -52,8 +52,8 @@ export function Transactions() {
           <button key={f.v} onClick={() => { setType(f.v); setPage(1) }}
             style={{ padding: '6px 16px', borderRadius: 20, fontSize: 13, fontWeight: 600, cursor: 'pointer', transition: 'all .15s', border: '1.5px solid', fontFamily: 'var(--font)',
               borderColor: type === f.v ? 'var(--gold)' : 'var(--border)',
-              background: type === f.v ? 'var(--gold)' : 'var(--white)',
-              color: type === f.v ? '#fff' : 'var(--ink-3)',
+              background: type === f.v ? 'var(--gold)' : 'var(--c-white)',
+              color: type === f.v ? 'var(--c-white)' : 'var(--c-text3)',
             }}>
             {f.l}
           </button>
@@ -71,7 +71,7 @@ export function Transactions() {
                   <tr key={tx.id}>
                     <td>
                       <p style={{ fontWeight: 600, color: 'var(--ink)', fontSize: 13.5 }}>{tx.products?.name ?? '—'}</p>
-                      <p style={{ fontSize: 11.5, color: 'var(--ink-3)', fontFamily: 'var(--mono)' }}>{tx.products?.sku}</p>
+                      <p style={{ fontSize: 11.5, color: 'var(--c-text3)', fontFamily: 'var(--mono)' }}>{tx.products?.sku}</p>
                     </td>
                     <td>
                       <span className={`badge ${tx.transaction_type === 'stock_in' ? 'badge-green' : tx.transaction_type === 'stock_out' ? 'badge-red' : 'badge-blue'}`}>
@@ -81,10 +81,10 @@ export function Transactions() {
                     <td style={{ fontWeight: 700, color: txColor(tx.transaction_type), fontSize: 14 }}>
                       {txSign(tx.transaction_type)}{tx.quantity} {tx.products?.unit}
                     </td>
-                    <td>{tx.reference_number ? <span className="mono badge badge-navy" style={{ fontSize: 11.5 }}>{tx.reference_number}</span> : <span style={{ color: 'var(--ink-4)' }}>—</span>}</td>
+                    <td>{tx.reference_number ? <span className="mono badge badge-navy" style={{ fontSize: 11.5 }}>{tx.reference_number}</span> : <span style={{ color: 'var(--c-text4)' }}>—</span>}</td>
                     <td style={{ fontSize: 13 }}>{tx.users?.full_name ?? '—'}</td>
-                    <td style={{ fontSize: 13, color: 'var(--ink-3)', maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{tx.notes ?? '—'}</td>
-                    <td style={{ fontSize: 12, color: 'var(--ink-3)', whiteSpace: 'nowrap' }}>{dt(tx.created_at)}</td>
+                    <td style={{ fontSize: 13, color: 'var(--c-text3)', maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{tx.notes ?? '—'}</td>
+                    <td style={{ fontSize: 12, color: 'var(--c-text3)', whiteSpace: 'nowrap' }}>{dt(tx.created_at)}</td>
                   </tr>
                 ))
               }
@@ -93,7 +93,7 @@ export function Transactions() {
         </div>
         {total > PER && (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderTop: '1px solid var(--border)' }}>
-            <p style={{ fontSize: 13, color: 'var(--ink-3)' }}>{(page-1)*PER+1}–{Math.min(page*PER,total)} of {total}</p>
+            <p style={{ fontSize: 13, color: 'var(--c-text3)' }}>{(page-1)*PER+1}–{Math.min(page*PER,total)} of {total}</p>
             <div style={{ display: 'flex', gap: 6 }}>
               <button className="btn btn-secondary btn-sm" disabled={page===1} onClick={() => setPage(p=>p-1)}><ChevronLeft size={13}/></button>
               <button className="btn btn-secondary btn-sm" disabled={page*PER>=total} onClick={() => setPage(p=>p+1)}><ChevronRight size={13}/></button>

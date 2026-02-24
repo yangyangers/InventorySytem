@@ -57,7 +57,7 @@ export default function Suppliers() {
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 22 }}>
         <div>
           <h2 style={{ fontSize: 22, fontWeight: 800, color: 'var(--ink)', letterSpacing: '-.02em' }}>Suppliers</h2>
-          <p style={{ color: 'var(--ink-3)', fontSize: 13.5, marginTop: 3 }}>{items.length} active suppliers</p>
+          <p style={{ color: 'var(--c-text3)', fontSize: 13.5, marginTop: 3 }}>{items.length} active suppliers</p>
         </div>
         <button className="btn btn-primary" onClick={() => open()}><Plus size={15} /> Add Supplier</button>
       </div>
@@ -68,9 +68,9 @@ export default function Suppliers() {
           </div>
         : items.length === 0
         ? <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '80px 20px', gap: 12 }}>
-            <Truck size={48} style={{ color: 'var(--ink-4)', opacity: .5 }} />
-            <p style={{ color: 'var(--ink-3)', fontWeight: 600 }}>No suppliers yet</p>
-            <p style={{ fontSize: 13, color: 'var(--ink-4)' }}>Add your first supplier to get started</p>
+            <Truck size={48} style={{ color: 'var(--c-text4)', opacity: .5 }} />
+            <p style={{ color: 'var(--c-text3)', fontWeight: 600 }}>No suppliers yet</p>
+            <p style={{ fontSize: 13, color: 'var(--c-text4)' }}>Add your first supplier to get started</p>
             <button className="btn btn-primary" onClick={() => open()}><Plus size={14} />Add Supplier</button>
           </div>
         : <div className="stagger" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(280px,1fr))', gap: 16 }}>
@@ -122,8 +122,8 @@ export default function Suppliers() {
 
 function InfoRow({ icon, val }: { icon: React.ReactNode; val: string }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12.5, color: 'var(--ink-2)' }}>
-      <span style={{ color: 'var(--ink-4)', flexShrink: 0 }}>{icon}</span>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12.5, color: 'var(--c-text2)' }}>
+      <span style={{ color: 'var(--c-text4)', flexShrink: 0 }}>{icon}</span>
       <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{val}</span>
     </div>
   )
