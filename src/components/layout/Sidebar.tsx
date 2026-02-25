@@ -239,7 +239,7 @@ export default function Sidebar({ open, onClose }: Props) {
 
         {/* Sign out — full width row, clearly readable */}
         <button
-          onClick={() => { logout(); nav('/login') }}
+          onClick={() => { logout().then(() => nav('/login')) }}
           style={{
             display: 'flex', alignItems: 'center', gap: 8,
             width: '100%', padding: '8px 11px', borderRadius: 7,

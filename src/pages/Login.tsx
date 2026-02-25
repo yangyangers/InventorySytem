@@ -1,16 +1,13 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { Eye, EyeOff, AlertCircle, Boxes, ArrowRight, Zap } from 'lucide-react'
 import { sb } from '@/lib/supabase'
-import { useAuth } from '@/store/auth'
-import { BIZ, SessionUser } from '@/types'
+import { BIZ } from '@/types'
 import { BIZ_LOGOS } from '@/lib/logos'
-import bcrypt from 'bcryptjs'
 
 export default function Login() {
-  const { setUser } = useAuth()
   const nav = useNavigate()
-  const [username, setUsername] = useState('')
+  const [email, setEmail]       = useState('')
   const [password, setPassword] = useState('')
   const [showPw, setShowPw]     = useState(false)
   const [err, setErr]           = useState('')
@@ -20,14 +17,20 @@ export default function Login() {
     e.preventDefault()
     setErr(''); setLoading(true)
     try {
-      const { data, error } = await sb
-        .from('users').select('*')
-        .eq('username', username.toLowerCase().trim())
-        .eq('is_active', true).single()
-      if (error || !data) { setErr('Username not found or account is inactive.'); return }
-      const ok = await bcrypt.compare(password, data.password_hash)
-      if (!ok) { setErr('Incorrect password. Please try again.'); return }
-      setUser({ id: data.id, username: data.username, full_name: data.full_name, email: data.email, role: data.role, business_id: data.business_id, avatar_color: data.avatar_color, password_hash: data.password_hash } as SessionUser)
+      const { error } = await sb.auth.signInWithPassword({
+        email: email.toLowerCase().trim(),
+        password,
+      })
+      if (error) {
+        if (error.message.toLowerCase().includes('invalid'))
+          setErr('Incorrect email or password.')
+        else if (error.message.toLowerCase().includes('email not confirmed'))
+          setErr('Please confirm your email before signing in.')
+        else
+          setErr(error.message)
+        return
+      }
+      // Auth state change in store/auth.ts will hydrate the user profile automatically
       nav('/')
     } catch { setErr('Connection error — check your Supabase config.') }
     finally { setLoading(false) }
@@ -132,14 +135,14 @@ export default function Login() {
 
             <form onSubmit={submit} style={{ display:'flex', flexDirection:'column', gap:16 }}>
               <div>
-                <label className="label">Username</label>
-                <div style={{ position:'relative' }}>
-                  <span style={{ position:'absolute', left:12, top:'50%', transform:'translateY(-50%)', color:'var(--c-text3)', fontFamily:'var(--mono)', fontSize:13.5, pointerEvents:'none', fontWeight:500 }}>@</span>
-                  <input className="input input-mono" style={{ paddingLeft:28 }} placeholder="your.username" value={username} onChange={e => setUsername(e.target.value)} required autoFocus autoComplete="username" />
-                </div>
+                <label className="label">Email</label>
+                <input className="input" type="email" placeholder="you@example.com" value={email} onChange={e => setEmail(e.target.value)} required autoFocus autoComplete="email" />
               </div>
               <div>
-                <label className="label">Password</label>
+                <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:4 }}>
+                  <label className="label" style={{ marginBottom:0 }}>Password</label>
+                  <Link to="/forgot-password" style={{ fontSize:12, color:'var(--c-teal)', fontWeight:600, textDecoration:'none' }}>Forgot password?</Link>
+                </div>
                 <div style={{ position:'relative' }}>
                   <input className="input" type={showPw ? 'text' : 'password'} style={{ paddingRight:44 }} placeholder="Enter your password" value={password} onChange={e => setPassword(e.target.value)} required autoComplete="current-password" />
                   <button type="button" onClick={() => setShowPw(!showPw)} style={{ position:'absolute', right:12, top:'50%', transform:'translateY(-50%)', color:'var(--c-text3)', background:'none', border:'none', cursor:'pointer', display:'flex', padding:2 }}>

@@ -1,33 +1,55 @@
 // ── STAFF PAGE ────────────────────────────────────────────────
 import { useEffect, useState } from 'react'
-import { Plus, Edit2, UserX, UserCheck, Shield, User as UserIcon, AtSign, Trash2 } from 'lucide-react'
+import { Plus, Edit2, UserX, UserCheck, Shield, User as UserIcon, Trash2, Users } from 'lucide-react'
 import { sb } from '@/lib/supabase'
 import { useAuth } from '@/store/auth'
-import { BIZ, BizId, AVATAR_COLORS, StaffUser } from '@/types'
+import { BIZ, BizId, StaffUser } from '@/types'
 import { avatarColor, bizColor } from '@/lib/utils'
 import { Modal, Alert, Field, SkeletonRows, Empty, Confirm } from '@/components/ui'
-import { Users } from 'lucide-react'
-import bcrypt from 'bcryptjs'
 
-const BLANK_STAFF = { full_name: '', username: '', email: '', password: '', role: 'staff' as 'admin'|'staff', business_id: 'wellbuild' as BizId }
+const BLANK = { full_name: '', username: '', email: '', password: '', role: 'staff' as 'admin'|'staff', business_id: 'wellbuild' as BizId }
+
+// Call the edge function
+async function manageStaff(action: string, payload: Record<string, any>) {
+  const { data: { session } } = await sb.auth.getSession()
+  const res = await fetch(
+    `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/manage-staff`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${session?.access_token}`,
+        'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+      },
+      body: JSON.stringify({ action, ...payload }),
+    }
+  )
+  const data = await res.json()
+  if (!res.ok || data.error) throw new Error(data.error || 'Request failed')
+  return data
+}
 
 export function Staff() {
   const { user } = useAuth()
-  const [rows, setRows]     = useState<StaffUser[]>([])
-  const [loading, setLoading] = useState(true)
-  const [modal, setModal]   = useState(false)
-  const [editing, setEditing] = useState<StaffUser | null>(null)
-  const [form, setForm]     = useState({ ...BLANK_STAFF })
-  const [saving, setSaving] = useState(false)
-  const [err, setErr]       = useState('')
-  const [ok, setOk]         = useState('')
+  const [rows, setRows]         = useState<StaffUser[]>([])
+  const [loading, setLoading]   = useState(true)
+  const [modal, setModal]       = useState(false)
+  const [editing, setEditing]   = useState<StaffUser | null>(null)
+  const [form, setForm]         = useState({ ...BLANK })
+  const [saving, setSaving]     = useState(false)
+  const [err, setErr]           = useState('')
+  const [ok, setOk]             = useState('')
   const [toggleTarget, setToggleTarget] = useState<StaffUser | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<StaffUser | null>(null)
 
   async function load() {
     if (!user) return
     setLoading(true)
-    const { data } = await sb.from('users').select('id,email,username,full_name,role,business_id,avatar_color,is_active,created_at').eq('business_id', user.business_id).order('created_at', { ascending: false })
+    const { data } = await sb
+      .from('users')
+      .select('id,email,username,full_name,role,business_id,avatar_color,is_active,created_at')
+      .eq('business_id', user.business_id)
+      .order('created_at', { ascending: false })
     setRows(data as StaffUser[] ?? [])
     setLoading(false)
   }
@@ -35,41 +57,65 @@ export function Staff() {
 
   function open(s?: StaffUser) {
     setEditing(s ?? null)
-    setForm(s ? { full_name: s.full_name, username: s.username, email: s.email ?? '', password: '', role: s.role, business_id: s.business_id } : { ...BLANK_STAFF })
+    setForm(s
+      ? { full_name: s.full_name, username: s.username, email: s.email ?? '', password: '', role: s.role, business_id: s.business_id }
+      : { ...BLANK }
+    )
     setErr(''); setOk(''); setModal(true)
   }
 
   async function save(e: React.FormEvent) {
-    e.preventDefault(); setSaving(true); setErr(''); setOk('')
+    e.preventDefault()
+    setSaving(true); setErr(''); setOk('')
     try {
       if (editing) {
-        const upd: any = { full_name: form.full_name, role: form.role, updated_at: new Date().toISOString() }
-        if (form.password) {
-          if (form.password.length < 8) { setErr('Password must be at least 8 characters'); return }
-          upd.password_hash = await bcrypt.hash(form.password, 12)
-        }
-        const { error } = await sb.from('users').update(upd).eq('id', editing.id)
-        if (error) { setErr(error.message); return }
+        await manageStaff('update', {
+          user_id:    editing.id,
+          full_name:  form.full_name,
+          role:       form.role,
+          email:      form.email.toLowerCase(),
+        })
       } else {
+        if (!form.email)    { setErr('Email is required'); return }
         if (!form.password || form.password.length < 8) { setErr('Password must be at least 8 characters'); return }
-        const hash = await bcrypt.hash(form.password, 12)
-        const { error } = await sb.from('users').insert({ full_name: form.full_name, username: form.username.toLowerCase(), email: form.email || null, password_hash: hash, role: form.role, business_id: form.business_id, is_active: true })
-        if (error) { setErr(error.message.includes('unique') ? (error.message.includes('username') ? 'Username already taken' : 'Email already exists') : error.message); return }
+        await manageStaff('create', {
+          email:       form.email.toLowerCase(),
+          password:    form.password,
+          full_name:   form.full_name,
+          username:    form.username.toLowerCase(),
+          role:        form.role,
+          business_id: form.business_id,
+        })
       }
-      setOk(editing ? 'Staff updated!' : 'Account created!')
-      setTimeout(() => { setModal(false); load() }, 800)
-    } finally { setSaving(false) }
+      setOk(editing ? 'Staff updated!' : 'Account created! They can now log in.')
+      setTimeout(() => { setModal(false); load() }, 900)
+    } catch (e: any) {
+      setErr(e.message || 'Something went wrong')
+    } finally {
+      setSaving(false)
+    }
   }
 
   async function toggle() {
     if (!toggleTarget) return
-    await sb.from('users').update({ is_active: !toggleTarget.is_active }).eq('id', toggleTarget.id)
+    try {
+      await manageStaff('toggle', {
+        user_id:   toggleTarget.id,
+        is_active: !toggleTarget.is_active,
+      })
+    } catch (e: any) {
+      setErr(e.message)
+    }
     setToggleTarget(null); load()
   }
 
   async function deleteStaff() {
     if (!deleteTarget) return
-    await sb.from('users').delete().eq('id', deleteTarget.id)
+    try {
+      await manageStaff('delete', { user_id: deleteTarget.id })
+    } catch (e: any) {
+      setErr(e.message)
+    }
     setDeleteTarget(null); load()
   }
 
@@ -90,8 +136,13 @@ export function Staff() {
           { role: 'Staff', Icon: UserIcon, color: 'var(--c-text3)', bg: 'var(--bg)', desc: 'Standard access — inventory, transactions, suppliers (view only for delete).' },
         ].map(({ role, Icon, color, bg, desc }) => (
           <div key={role} className="card-inset" style={{ padding: '12px 16px', display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-            <div style={{ width: 34, height: 34, borderRadius: 9, background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, border: '1px solid var(--border)' }}><Icon size={15} style={{ color }} /></div>
-            <div><p style={{ fontWeight: 700, fontSize: 13, color: 'var(--ink)', marginBottom: 2 }}>{role}</p><p style={{ fontSize: 12.5, color: 'var(--c-text3)', lineHeight: 1.5 }}>{desc}</p></div>
+            <div style={{ width: 34, height: 34, borderRadius: 9, background: bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, border: '1px solid var(--border)' }}>
+              <Icon size={15} style={{ color }} />
+            </div>
+            <div>
+              <p style={{ fontWeight: 700, fontSize: 13, color: 'var(--ink)', marginBottom: 2 }}>{role}</p>
+              <p style={{ fontSize: 12.5, color: 'var(--c-text3)', lineHeight: 1.5 }}>{desc}</p>
+            </div>
           </div>
         ))}
       </div>
@@ -99,7 +150,9 @@ export function Staff() {
       <div className="card" style={{ overflow: 'hidden' }}>
         <div style={{ overflowX: 'auto' }}>
           <table className="table">
-            <thead><tr><th>Member</th><th>Username</th><th>Role</th><th>Business</th><th>Status</th><th>Joined</th><th style={{ textAlign: 'right' }}>Actions</th></tr></thead>
+            <thead>
+              <tr><th>Member</th><th>Username</th><th>Role</th><th>Business</th><th>Status</th><th>Joined</th><th style={{ textAlign: 'right' }}>Actions</th></tr>
+            </thead>
             <tbody>
               {loading ? <SkeletonRows cols={7} rows={5} /> : rows.length === 0
                 ? <tr><td colSpan={7}><Empty icon={<Users size={38} />} text="No staff members yet" /></td></tr>
@@ -111,7 +164,7 @@ export function Staff() {
                     <tr key={s.id} style={{ opacity: s.is_active ? 1 : .45 }}>
                       <td>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                          <div style={{ width: 36, height: 36, borderRadius: 10, background: av, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 14, color: 'var(--c-white)', flexShrink: 0 }}>
+                          <div style={{ width: 36, height: 36, borderRadius: 10, background: av, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 14, color: '#fff', flexShrink: 0 }}>
                             {s.full_name[0]?.toUpperCase()}
                           </div>
                           <div>
@@ -128,8 +181,15 @@ export function Staff() {
                       <td>
                         <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end' }}>
                           <button className="btn-icon" title="Edit" onClick={() => open(s)}><Edit2 size={13} /></button>
-                          <button className={`btn-icon ${s.is_active ? 'danger' : ''}`} title={s.is_active ? 'Deactivate' : 'Reactivate'} onClick={() => setToggleTarget(s)}>
-                            {s.is_active ? <UserX size={13} /> : <UserCheck size={13} style={{ color: 'var(--c-green)' }} />}
+                          <button
+                            className={`btn-icon ${s.is_active ? 'danger' : ''}`}
+                            title={s.is_active ? 'Deactivate' : 'Reactivate'}
+                            onClick={() => setToggleTarget(s)}
+                          >
+                            {s.is_active
+                              ? <UserX size={13} />
+                              : <UserCheck size={13} style={{ color: 'var(--c-green)' }} />
+                            }
                           </button>
                           {s.id !== user?.id && (
                             <button className="btn-icon danger" title="Delete permanently" onClick={() => setDeleteTarget(s)}>
@@ -147,26 +207,49 @@ export function Staff() {
         </div>
       </div>
 
+      {/* Add / Edit Modal */}
       {modal && (
-        <Modal title={editing ? 'Edit Staff Member' : 'Add Staff Member'} subtitle={editing ? 'Update account details' : 'Create a new login account'} onClose={() => setModal(false)} width={500}
-          footer={<><button className="btn btn-secondary" onClick={() => setModal(false)}>Cancel</button><button className="btn btn-primary" onClick={save as any} disabled={saving}>{saving ? 'Saving…' : editing ? 'Save Changes' : 'Create Account'}</button></>}
+        <Modal
+          title={editing ? 'Edit Staff Member' : 'Add Staff Member'}
+          subtitle={editing ? 'Update account details' : 'Create a new login account'}
+          onClose={() => setModal(false)}
+          width={500}
+          footer={
+            <>
+              <button className="btn btn-secondary" onClick={() => setModal(false)}>Cancel</button>
+              <button className="btn btn-primary" onClick={save as any} disabled={saving}>
+                {saving ? 'Saving…' : editing ? 'Save Changes' : 'Create Account'}
+              </button>
+            </>
+          }
         >
           <form onSubmit={save} style={{ display: 'flex', flexDirection: 'column', gap: 13 }}>
             {err && <Alert msg={err} type="err" />}
             {ok  && <Alert msg={ok}  type="ok"  />}
-            <Field label="Full Name" required><input className="input" required value={form.full_name} onChange={e => setForm(p=>({...p,full_name:e.target.value}))} /></Field>
+            <Field label="Full Name" required>
+              <input className="input" required value={form.full_name} onChange={e => setForm(p=>({...p,full_name:e.target.value}))} />
+            </Field>
             {!editing && (
-              <Field label="Username (used to log in)" required>
+              <Field label="Username" required>
                 <div style={{ position: 'relative' }}>
                   <span style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)', fontFamily: 'var(--mono)', fontSize: 13, color: 'var(--c-text3)' }}>@</span>
                   <input className="input input-mono" style={{ paddingLeft: 26 }} required value={form.username} onChange={e => setForm(p=>({...p,username:e.target.value.toLowerCase()}))} placeholder="juan.delacruz" />
                 </div>
               </Field>
             )}
-            <Field label="Email (optional)"><input className="input" type="email" value={form.email} onChange={e => setForm(p=>({...p,email:e.target.value}))} placeholder="email@company.com" /></Field>
-            <Field label={editing ? 'New Password (leave blank to keep)' : 'Password'} required={!editing}>
-              <input className="input" type="password" required={!editing} minLength={editing?0:8} value={form.password} onChange={e => setForm(p=>({...p,password:e.target.value}))} placeholder={editing ? 'Leave blank to keep current' : 'Minimum 8 characters'} />
+            <Field label="Email" required>
+              <input className="input" type="email" required value={form.email} onChange={e => setForm(p=>({...p,email:e.target.value}))} placeholder="email@company.com" />
             </Field>
+            {!editing && (
+              <Field label="Password" required>
+                <input className="input" type="password" required minLength={8} value={form.password} onChange={e => setForm(p=>({...p,password:e.target.value}))} placeholder="Minimum 8 characters" />
+              </Field>
+            )}
+            {editing && (
+              <div style={{ padding: '10px 14px', background: 'var(--c-bg)', borderRadius: 8, border: '1px solid var(--c-border)', fontSize: 12.5, color: 'var(--c-text3)' }}>
+                🔒 Password changes are done by the staff member in Profile → Security.
+              </div>
+            )}
             <div className="grid-2">
               <Field label="Role">
                 <select className="input" value={form.role} onChange={e => setForm(p=>({...p,role:e.target.value as any}))}>
@@ -186,19 +269,23 @@ export function Staff() {
         </Modal>
       )}
 
+      {/* Deactivate / Reactivate confirm */}
       {toggleTarget && (
         <Confirm
           msg={`${toggleTarget.is_active ? 'Deactivate' : 'Reactivate'} "${toggleTarget.full_name}"? They ${toggleTarget.is_active ? 'will not be able to log in' : 'will be able to log in again'}.`}
-          onYes={toggle} onNo={() => setToggleTarget(null)}
+          onYes={toggle}
+          onNo={() => setToggleTarget(null)}
         />
       )}
 
+      {/* Delete confirm */}
       {deleteTarget && (
         <Confirm
           title="Delete staff member?"
           msg={`Permanently delete "${deleteTarget.full_name}" (@${deleteTarget.username})? This cannot be undone.`}
           confirmLabel="Delete"
-          onYes={deleteStaff} onNo={() => setDeleteTarget(null)}
+          onYes={deleteStaff}
+          onNo={() => setDeleteTarget(null)}
         />
       )}
     </div>

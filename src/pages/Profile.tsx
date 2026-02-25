@@ -1,11 +1,10 @@
 import { useEffect, useState } from 'react'
-import { Check, Lock, User, Palette, Shield, Loader, Camera } from 'lucide-react'
+import { Check, Lock, User, Palette, Shield, Loader } from 'lucide-react'
 import { sb } from '@/lib/supabase'
 import { useAuth } from '@/store/auth'
 import { BIZ, BizId, AVATAR_COLORS } from '@/types'
 import { avatarColor, bizColor } from '@/lib/utils'
 import { Alert } from '@/components/ui'
-import bcrypt from 'bcryptjs'
 
 type Tab = 'profile' | 'security' | 'appearance'
 
@@ -53,13 +52,21 @@ export default function Profile() {
     if (pw.next !== pw.conf) { flash('err', 'New passwords do not match'); return }
     if (pw.next.length < 8)  { flash('err', 'Password must be at least 8 characters'); return }
     setSaving(true); setMsg(null)
-    const valid = await bcrypt.compare(pw.cur, dbUser.password_hash)
-    if (!valid) { flash('err', 'Current password is incorrect'); setSaving(false); return }
-    const hash = await bcrypt.hash(pw.next, 12)
-    const { error } = await sb.from('users').update({ password_hash: hash, updated_at: new Date().toISOString() }).eq('id', user!.id)
+
+    // Verify current password by re-authenticating
+    const { data: { user: authUser } } = await sb.auth.getUser()
+    if (!authUser?.email) { flash('err', 'Session error — please sign in again'); setSaving(false); return }
+
+    const { error: signInErr } = await sb.auth.signInWithPassword({
+      email: authUser.email,
+      password: pw.cur,
+    })
+    if (signInErr) { flash('err', 'Current password is incorrect'); setSaving(false); return }
+
+    // Update password via Supabase Auth
+    const { error } = await sb.auth.updateUser({ password: pw.next })
     setSaving(false)
     if (error) { flash('err', error.message); return }
-    setDbUser((d: any) => ({ ...d, password_hash: hash }))
     setPw({ cur:'', next:'', conf:'' })
     flash('ok', 'Password changed successfully!')
   }
@@ -217,9 +224,9 @@ export default function Profile() {
           <div style={{ marginTop: 28, paddingTop: 22, borderTop: '1px solid var(--border)' }}>
             <h4 style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)', marginBottom: 12 }}>Session Info</h4>
             {[
-              ['Storage', 'Browser localStorage (persists until sign out)'],
-              ['Authentication', 'Client-side bcrypt password verification'],
-              ['Auto-logout', 'Manual sign out or browser data clear'],
+              ['Storage', 'Supabase Auth JWT (secure, server-side session)'],
+              ['Authentication', 'Supabase Auth — email + password'],
+              ['Auto-logout', 'On token expiry or manual sign out'],
             ].map(([k, v]) => (
               <div key={k} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 14px', background: 'var(--bg)', borderRadius: 8, border: '1px solid var(--border)', marginBottom: 6 }}>
                 <span style={{ fontSize: 13, color: 'var(--c-text3)', fontWeight: 600 }}>{k}</span>
