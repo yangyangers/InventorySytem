@@ -39,10 +39,26 @@ export default function Profile() {
       const { data: ex } = await sb.from('users').select('id').eq('username', pf.username.toLowerCase()).neq('id', user!.id).single()
       if (ex) { flash('err', 'That username is already taken'); setSaving(false); return }
     }
-    const { error } = await sb.from('users').update({ full_name: pf.full_name, username: pf.username.toLowerCase(), email: pf.email||null, phone: pf.phone||null, bio: pf.bio||null, updated_at: new Date().toISOString() }).eq('id', user!.id)
+
+    // Update users table
+    const { error } = await sb.from('users').update({
+      full_name:  pf.full_name,
+      username:   pf.username.toLowerCase(),
+      email:      pf.email || null,
+      phone:      pf.phone || null,
+      bio:        pf.bio   || null,
+      updated_at: new Date().toISOString(),
+    }).eq('id', user!.id)
+    if (error) { flash('err', error.message); setSaving(false); return }
+
+    // If email changed, sync to Supabase Auth too
+    if (pf.email && pf.email.toLowerCase() !== dbUser.email?.toLowerCase()) {
+      const { error: authError } = await sb.auth.updateUser({ email: pf.email.toLowerCase() })
+      if (authError) { flash('err', 'Profile saved but email sync failed: ' + authError.message); setSaving(false); return }
+    }
+
     setSaving(false)
-    if (error) { flash('err', error.message); return }
-    setUser({ ...user!, full_name: pf.full_name, username: pf.username.toLowerCase(), email: pf.email||null })
+    setUser({ ...user!, full_name: pf.full_name, username: pf.username.toLowerCase(), email: pf.email || null })
     setDbUser((d: any) => ({ ...d, ...pf }))
     flash('ok', 'Profile updated successfully!')
   }
