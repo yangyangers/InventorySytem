@@ -51,10 +51,29 @@ export default function Profile() {
     }).eq('id', user!.id)
     if (error) { flash('err', error.message); setSaving(false); return }
 
-    // If email changed, sync to Supabase Auth too
+    // If email changed, sync to Supabase Auth via edge function (no confirmation email)
     if (pf.email && pf.email.toLowerCase() !== dbUser.email?.toLowerCase()) {
-      const { error: authError } = await sb.auth.updateUser({ email: pf.email.toLowerCase() })
-      if (authError) { flash('err', 'Profile saved but email sync failed: ' + authError.message); setSaving(false); return }
+      const { data: { session } } = await sb.auth.getSession()
+      const res = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/manage-staff`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session?.access_token}`,
+            'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+          },
+          body: JSON.stringify({
+            action:    'update',
+            user_id:   user!.id,
+            full_name: pf.full_name,
+            role:      dbUser.role,
+            email:     pf.email.toLowerCase(),
+          }),
+        }
+      )
+      const result = await res.json()
+      if (result.error) { flash('err', 'Email sync failed: ' + result.error); setSaving(false); return }
     }
 
     setSaving(false)

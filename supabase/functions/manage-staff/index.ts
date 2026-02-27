@@ -47,14 +47,16 @@ serve(async (req) => {
       .eq('auth_id', caller.id)
       .single()
 
-    if (!callerProfile || callerProfile.role !== 'admin') {
-      return new Response(JSON.stringify({ error: 'Only admins can manage staff' }), {
+    const body = await req.json()
+    const { action } = body
+
+    // Allow users to update their own profile (not just admins)
+    const isSelf = action === 'update' && body.user_id && callerProfile
+    if (!callerProfile || (callerProfile.role !== 'admin' && !isSelf)) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
         status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       })
     }
-
-    const body = await req.json()
-    const { action } = body
 
     // ── CREATE ──────────────────────────────────────────────
     if (action === 'create') {
