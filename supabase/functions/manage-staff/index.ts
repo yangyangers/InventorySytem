@@ -141,15 +141,21 @@ serve(async (req) => {
         })
       }
 
-      // Update auth email if changed
-      if (email && target.auth_id) {
-        await supabaseAdmin.auth.admin.updateUserById(target.auth_id, {
+      // Update auth email and name
+      if (target.auth_id) {
+        const { error: authUpdateError } = await supabaseAdmin.auth.admin.updateUserById(target.auth_id, {
           email: email.toLowerCase().trim(),
+          user_metadata: { full_name },
         })
+        if (authUpdateError) {
+          return new Response(JSON.stringify({ error: 'Auth update failed: ' + authUpdateError.message }), {
+            status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          })
+        }
       }
 
       // Update users table
-      await supabaseAdmin
+      const { error: dbUpdateError } = await supabaseAdmin
         .from('users')
         .update({
           full_name: full_name.trim(),
@@ -158,6 +164,12 @@ serve(async (req) => {
           updated_at: new Date().toISOString(),
         })
         .eq('id', user_id)
+
+      if (dbUpdateError) {
+        return new Response(JSON.stringify({ error: 'DB update failed: ' + dbUpdateError.message }), {
+          status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        })
+      }
 
       return new Response(JSON.stringify({ ok: true }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
