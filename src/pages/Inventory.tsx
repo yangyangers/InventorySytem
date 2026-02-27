@@ -6,6 +6,66 @@ import { Product, Category, Supplier, UNITS } from '@/types'
 import { php, stockBadge } from '@/lib/utils'
 import { Modal, Alert, Field, SkeletonRows, Empty, Confirm } from '@/components/ui'
 
+// ── Stock Level Bar ──────────────────────────────────────────────────────────
+const stockBarStyles = `
+  @keyframes sb-blink {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: 0.3; }
+  }
+  .sb-blink { animation: sb-blink 1.2s ease-in-out infinite; }
+`
+
+function StockBar({ quantity, reorderLevel }: { quantity: number; reorderLevel: number }) {
+  const isOut = quantity === 0
+  const isLow = !isOut && quantity <= reorderLevel
+
+  const maxDisplay = Math.max(reorderLevel * 2, quantity)
+  const fillPct    = isOut ? 0 : Math.min((quantity / maxDisplay) * 100, 100)
+
+  const color     = isOut ? '#f87171' : isLow ? '#fbbf24' : '#4ade80'
+  const colorDark = isOut ? '#dc2626' : isLow ? '#d97706' : '#16a34a'
+  const track     = isOut ? '#fee2e2' : isLow ? '#fef3c7' : '#dcfce7'
+  const label     = isOut ? 'Out of stock' : isLow ? 'Low stock' : 'In stock'
+  const statusTxt = isOut ? 'Empty' : isLow ? 'Low' : 'In Stock'
+
+  return (
+    <>
+      <style>{stockBarStyles}</style>
+      <div title={label} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+        {/* Pill track */}
+        <div style={{
+          width: 14, height: 52, borderRadius: 99,
+          background: track, overflow: 'hidden',
+          display: 'flex', flexDirection: 'column', justifyContent: 'flex-end',
+          boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.08)',
+        }}>
+          <div
+            className={isOut ? 'sb-blink' : undefined}
+            style={{
+              width: '100%',
+              height: isOut ? '100%' : `${fillPct}%`,
+              minHeight: isOut ? 0 : 6,
+              background: `linear-gradient(to top, ${colorDark}, ${color})`,
+              borderRadius: 99,
+              transition: 'height 0.5s ease',
+            }}
+          />
+        </div>
+        {/* Label */}
+        <span style={{
+          fontSize: 10, fontWeight: 600,
+          color: colorDark,
+          whiteSpace: 'nowrap',
+          letterSpacing: '0.01em',
+        }}>
+          {statusTxt}
+        </span>
+      </div>
+    </>
+  )
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
 const BLANK = { sku:'', name:'', description:'', category_id:'', supplier_id:'', unit:'pcs', quantity:0, reorder_level:10, cost_price:0, selling_price:0 }
 const BLANK_TX = { type: 'stock_in' as 'stock_in'|'stock_out'|'adjustment', qty:1, ref:'', notes:'' }
 
@@ -171,7 +231,7 @@ export default function Inventory() {
             <thead>
               <tr>
                 <th>Product</th><th>SKU</th><th>Category</th><th>Supplier</th>
-                <th>Stock</th><th>Status</th><th>Cost</th><th>Selling Price</th>
+                <th>Stock</th><th style={{ textAlign: 'center' }}>Status</th><th>Cost</th><th>Selling Price</th>
                 <th style={{ textAlign: 'right' }}>Actions</th>
               </tr>
             </thead>
@@ -183,7 +243,6 @@ export default function Inventory() {
                     <Empty icon={<Package size={42} />} text="No products found" sub="Try adjusting your filters or add a new product." />
                   </td></tr>
                 : rows.map(p => {
-                  const st = stockBadge(p.quantity, p.reorder_level)
                   return (
                     <tr key={p.id}>
                       <td style={{ maxWidth: 220 }}>
@@ -197,7 +256,7 @@ export default function Inventory() {
                         <span style={{ fontWeight: 800, color: 'var(--ink)', fontSize: 15, fontFamily: 'var(--font-head)' }}>{p.quantity}</span>
                         <span style={{ color: 'var(--c-text3)', fontSize: 12, marginLeft: 4 }}>{p.unit}</span>
                       </td>
-                      <td><span className={`badge ${st.cls}`}>{st.label}</span></td>
+                      <td style={{ textAlign: 'center' }}><StockBar quantity={p.quantity} reorderLevel={p.reorder_level} /></td>
                       <td style={{ fontSize: 13, color: 'var(--c-text2)' }}>{php(p.cost_price)}</td>
                       <td style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--ink)' }}>{php(p.selling_price)}</td>
                       <td>
