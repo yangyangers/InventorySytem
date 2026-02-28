@@ -18,7 +18,7 @@ import Categories   from '@/pages/Categories'
 
 function Guard({ children, admin = false }: { children: React.ReactNode; admin?: boolean }) {
   const { user, ready } = useAuth()
-  if (!ready) return null                                          // wait for session check
+  if (!ready) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', background: 'var(--bg, #f3f4f6)' }}><div style={{ width: 36, height: 36, border: '3px solid #e5e7eb', borderTop: '3px solid #6366f1', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} /><style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style></div>
   if (!user)  return <Navigate to="/login" replace />
   if (admin && user.role !== 'admin') return <Navigate to="/" replace />
   return <>{children}</>
@@ -30,7 +30,7 @@ export default function App() {
   // Subscribe to Supabase Auth state changes once on mount
   useEffect(() => init(), [])
 
-  if (!ready) return null   // avoid flash before session resolved
+  if (!ready) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', background: 'var(--bg, #f3f4f6)' }}><div style={{ width: 36, height: 36, border: '3px solid #e5e7eb', borderTop: '3px solid #6366f1', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} /><style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style></div>   // show spinner, not blank
 
   return (
     <BrowserRouter>

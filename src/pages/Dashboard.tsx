@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { Package, DollarSign, AlertTriangle, TrendingDown, ArrowUpRight, ArrowDownRight, RotateCcw, ShoppingCart } from 'lucide-react'
 import { sb } from '@/lib/supabase'
 import { useAuth } from '@/store/auth'
@@ -92,9 +93,9 @@ export default function Dashboard() {
                 <p style={{ fontSize: 11.5, color: 'var(--c-text3)' }}>Latest stock movements</p>
               </div>
             </div>
-            <a href="/transactions" style={{ fontSize: 12.5, color: 'var(--gold)', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 4 }}>
+            <Link to="/transactions" style={{ fontSize: 12.5, color: 'var(--gold)', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 4 }}>
               View all <ArrowUpRight size={13} />
-            </a>
+            </Link>
           </div>
           <table className="table">
             <thead>
@@ -147,9 +148,9 @@ export default function Dashboard() {
                 <p style={{ fontSize: 11.5, color: 'var(--c-text3)' }}>Items needing attention</p>
               </div>
             </div>
-            <a href="/inventory" style={{ fontSize: 12.5, color: 'var(--gold)', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 4 }}>
+            <Link to="/inventory" style={{ fontSize: 12.5, color: 'var(--gold)', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 4 }}>
               Fix <ArrowUpRight size={13} />
-            </a>
+            </Link>
           </div>
           {loading
             ? <div style={{ padding: 18 }}>
