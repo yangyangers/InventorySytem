@@ -1,7 +1,7 @@
 import { NavLink, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard, Package, ArrowLeftRight, Truck,
-  Users, BarChart3, Tag, LogOut, ChevronRight, Sun, Moon, X, UserCheck,
+  Users, BarChart3, Tag, LogOut, ChevronRight, Sun, Moon, X, UserCheck, TrendingUp,
 } from 'lucide-react'
 import { useAuth } from '@/store/auth'
 import { useTheme } from '@/store/theme'
@@ -17,9 +17,10 @@ const MAIN = [
   { to: '/customers',    label: 'Customers',    icon: UserCheck },
 ]
 const ADMIN = [
-  { to: '/staff',      label: 'Staff',      icon: Users },
-  { to: '/reports',    label: 'Reports',    icon: BarChart3 },
-  { to: '/categories', label: 'Categories', icon: Tag },
+  { to: '/staff',         label: 'Staff',          icon: Users },
+  { to: '/reports',       label: 'Reports',         icon: BarChart3 },
+  { to: '/sales-reports', label: 'Sales Reports',   icon: TrendingUp },
+  { to: '/categories',    label: 'Categories',      icon: Tag },
 ]
 
 interface Props { open: boolean; onClose: () => void }

@@ -12,8 +12,9 @@ import Suppliers  from '@/pages/Suppliers'
 import Customers  from '@/pages/Customers'
 import Profile    from '@/pages/Profile'
 import Staff      from '@/pages/Staff'
-import Reports    from '@/pages/Reports'
-import Categories from '@/pages/Categories'
+import Reports      from '@/pages/Reports'
+import SalesReports from '@/pages/SalesReports'
+import Categories   from '@/pages/Categories'
 
 function Guard({ children, admin = false }: { children: React.ReactNode; admin?: boolean }) {
   const { user, ready } = useAuth()
@@ -49,7 +50,8 @@ export default function App() {
           <Route path="customers"    element={<Customers />} />
           <Route path="profile"      element={<Profile />} />
           <Route path="staff"        element={<Guard admin><Staff /></Guard>} />
-          <Route path="reports"      element={<Guard admin><Reports /></Guard>} />
+          <Route path="reports"        element={<Guard admin><Reports /></Guard>} />
+          <Route path="sales-reports" element={<Guard admin><SalesReports /></Guard>} />
           <Route path="categories"   element={<Guard admin><Categories /></Guard>} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
