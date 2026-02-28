@@ -276,12 +276,12 @@ export default function SalesReports() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           <StatCard label="Total Revenue" value={loading ? '—' : php(totalRevenue)}
             icon={<DollarSign size={22} />} color="var(--green)" bg="var(--c-green-dim)" accentColor="#10b981"
-            sub={loading ? '' : <><GrowthBadge val={revGrowth} /></>} />
+            sub={<GrowthBadge val={revGrowth} />} />
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           <StatCard label="Units Sold" value={loading ? '—' : totalUnits.toLocaleString()}
             icon={<Package size={22} />} color="var(--teal)" bg="var(--c-teal-dim)" accentColor="#5b9490"
-            sub={loading ? '' : <><GrowthBadge val={unitsGrowth} /></>} />
+            sub={<GrowthBadge val={unitsGrowth} />} />
         </div>
         <StatCard label="Gross Profit" value={loading ? '—' : php(grossProfit)}
           icon={<TrendingUp size={22} />} color="var(--gold)" bg="var(--c-gold-dim)" accentColor="var(--gold)"
@@ -289,7 +289,7 @@ export default function SalesReports() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
           <StatCard label="Transactions" value={loading ? '—' : txCount}
             icon={<FileText size={22} />} color="#4e6b65" bg="#eff3f2" accentColor="#4e6b65"
-            sub={loading ? '' : `${uniqueCustomers} unique customers`} />
+            sub={loading ? undefined : `${uniqueCustomers} unique customers`} />
         </div>
       </div>
 

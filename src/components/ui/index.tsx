@@ -179,7 +179,7 @@ export function Confirm({
 export function StatCard({
   label, value, sub, icon, color, bg, trend, accentColor,
 }: {
-  label: string; value: string | number; sub?: string
+  label: string; value: string | number; sub?: ReactNode
   icon: ReactNode; color: string; bg: string; accentColor?: string
   trend?: { val: string; up: boolean }
 }) {
@@ -205,7 +205,7 @@ export function StatCard({
       </div>
       <p style={{ fontSize:28, fontWeight:800, color:'var(--c-text)', letterSpacing:'-.04em', lineHeight:1, fontFamily:'var(--font-head)' }}>{value}</p>
       <p style={{ fontSize:13, color:'var(--c-text2)', fontWeight:600, marginTop:9 }}>{label}</p>
-      {sub && <p style={{ fontSize:11.5, color:'var(--c-text3)', marginTop:2 }}>{sub}</p>}
+      {sub && <div style={{ fontSize:11.5, color:'var(--c-text3)', marginTop:2 }}>{sub}</div>}
     </div>
   )
 }
