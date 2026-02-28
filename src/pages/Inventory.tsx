@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { Plus, Search, Edit2, Trash2, ArrowLeftRight, X, ChevronLeft, ChevronRight, Package, Filter } from 'lucide-react'
 import { sb } from '@/lib/supabase'
 import { useAuth } from '@/store/auth'
-import { Product, Category, Supplier, UNITS } from '@/types'
+import { Product, Category, Supplier, Customer, UNITS } from '@/types'
 import { php, stockBadge } from '@/lib/utils'
 import { Modal, Alert, Field, SkeletonRows, Empty, Confirm } from '@/components/ui'
 
@@ -67,13 +67,14 @@ function StockBar({ quantity, reorderLevel }: { quantity: number; reorderLevel: 
 // ─────────────────────────────────────────────────────────────────────────────
 
 const BLANK = { sku:'', name:'', description:'', category_id:'', supplier_id:'', unit:'pcs', quantity:0, reorder_level:10, cost_price:0, selling_price:0 }
-const BLANK_TX = { type: 'stock_in' as 'stock_in'|'stock_out'|'adjustment', qty:1, ref:'', notes:'' }
+const BLANK_TX = { type: 'stock_in' as 'stock_in'|'stock_out'|'adjustment', qty:1, ref:'', notes:'', voucher:'', date_of_sale:'', customer_name:'', customer_phone:'' }
 
 export default function Inventory() {
   const { user } = useAuth()
   const [rows, setRows]       = useState<Product[]>([])
   const [cats, setCats]       = useState<Category[]>([])
   const [sups, setSups]       = useState<Supplier[]>([])
+  const [custs, setCusts]     = useState<Customer[]>([])
   const [total, setTotal]     = useState(0)
   const [page, setPage]       = useState(1)
   const [search, setSearch]   = useState('')
@@ -94,12 +95,14 @@ export default function Inventory() {
 
   const loadMeta = useCallback(async () => {
     if (!user) return
-    const [c, s] = await Promise.all([
+    const [c, s, cu] = await Promise.all([
       sb.from('categories').select('*').eq('business_id', user.business_id).order('name'),
       sb.from('suppliers').select('*').eq('business_id', user.business_id).eq('is_active', true).order('name'),
+      sb.from('customers').select('*').eq('business_id', user.business_id).eq('is_active', true).order('name'),
     ])
     setCats(c.data as Category[] ?? [])
     setSups(s.data as Supplier[] ?? [])
+    setCusts(cu.data as Customer[] ?? [])
   }, [user])
 
   const loadRows = useCallback(async () => {
@@ -165,7 +168,17 @@ export default function Inventory() {
       if (tx.type === 'stock_in')       newQty += qty
       else if (tx.type === 'stock_out') { if (qty > p.quantity) { setErr(`Only ${p.quantity} ${p.unit} available`); return }; newQty -= qty }
       else                               newQty = qty
-      const { error } = await sb.from('transactions').insert({ product_id: p.id, business_id: user!.business_id, transaction_type: tx.type, quantity: qty, reference_number: tx.ref||null, notes: tx.notes||null, performed_by: user!.id })
+      const isOut = tx.type === 'stock_out'
+      const { error } = await sb.from('transactions').insert({
+        product_id: p.id, business_id: user!.business_id,
+        transaction_type: tx.type, quantity: qty,
+        reference_number: tx.ref||null, notes: tx.notes||null,
+        performed_by: user!.id,
+        voucher_number: isOut ? (tx.voucher||null) : null,
+        date_of_sale: isOut ? (tx.date_of_sale||null) : null,
+        customer_name: isOut ? (tx.customer_name||null) : null,
+        customer_phone: isOut ? (tx.customer_phone||null) : null,
+      })
       if (error) { setErr(error.message); return }
       await sb.from('products').update({ quantity: newQty, updated_at: new Date().toISOString() }).eq('id', p.id)
       setOk(`Done! New quantity: ${newQty} ${p.unit}`)
@@ -423,6 +436,42 @@ export default function Inventory() {
             <Field label="Notes">
               <textarea className="input" rows={2} placeholder="Optional notes…" value={tx.notes} onChange={e => setTx(p => ({ ...p, notes: e.target.value }))} />
             </Field>
+            {tx.type === 'stock_out' && (
+              <>
+                <div style={{ borderTop: '1px solid var(--border)', paddingTop: 14, marginTop: -4 }}>
+                  <p style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--c-text3)', letterSpacing: '.07em', textTransform: 'uppercase', marginBottom: 12 }}>Sale Details</p>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 13 }}>
+                    <div className="grid-2">
+                      <Field label="Voucher Number">
+                        <input className="input input-mono" placeholder="e.g. SI-001" value={tx.voucher} onChange={e => setTx(p => ({ ...p, voucher: e.target.value }))} />
+                      </Field>
+                      <Field label="Date of Sale">
+                        <input className="input" type="date" value={tx.date_of_sale} onChange={e => setTx(p => ({ ...p, date_of_sale: e.target.value }))} />
+                      </Field>
+                    </div>
+                    <div className="grid-2">
+                      <Field label="Customer Name">
+                        <select
+                          className="input"
+                          value={tx.customer_name}
+                          onChange={e => {
+                            const name = e.target.value
+                            const match = custs.find(c => c.name === name)
+                            setTx(p => ({ ...p, customer_name: name, customer_phone: match?.phone ?? p.customer_phone }))
+                          }}
+                        >
+                          <option value="">— Select customer —</option>
+                          {custs.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+                        </select>
+                      </Field>
+                      <Field label="Phone Number">
+                        <input className="input" placeholder="+63 9XX XXX XXXX" value={tx.customer_phone} onChange={e => setTx(p => ({ ...p, customer_phone: e.target.value }))} />
+                      </Field>
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
           </form>
         </Modal>
       )}

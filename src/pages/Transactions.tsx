@@ -1,6 +1,6 @@
 // ── Transactions ─────────────────────────────────────────────
 import { useEffect, useState, useCallback } from 'react'
-import { ArrowLeftRight, ChevronLeft, ChevronRight } from 'lucide-react'
+import { ArrowLeftRight, ChevronLeft, ChevronRight, User, Phone, Receipt, Calendar } from 'lucide-react'
 import { sb } from '@/lib/supabase'
 import { useAuth } from '@/store/auth'
 import { Transaction, TX_LABEL, TxType } from '@/types'
@@ -37,6 +37,9 @@ export function Transactions() {
 
   useEffect(() => { load() }, [load])
 
+  const showSaleCols = !type || type === 'stock_out'
+  const colSpan = showSaleCols ? 10 : 7
+
   return (
     <div className="anim-fade-up">
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
@@ -63,30 +66,80 @@ export function Transactions() {
       <div className="card" style={{ overflow: 'hidden' }}>
         <div style={{ overflowX: 'auto' }}>
           <table className="table">
-            <thead><tr><th>Product</th><th>Type</th><th>Qty</th><th>Reference</th><th>By</th><th>Notes</th><th>Date</th></tr></thead>
+            <thead>
+              <tr>
+                <th>Product</th>
+                <th>Type</th>
+                <th>Qty</th>
+                <th>Reference</th>
+                {showSaleCols && <th style={{ whiteSpace: 'nowrap' }}><span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><Receipt size={12} />Voucher</span></th>}
+                {showSaleCols && <th style={{ whiteSpace: 'nowrap' }}><span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><Calendar size={12} />Date of Sale</span></th>}
+                {showSaleCols && <th style={{ whiteSpace: 'nowrap' }}><span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><User size={12} />Customer</span></th>}
+                <th>By</th>
+                <th>Notes</th>
+                <th>Recorded</th>
+              </tr>
+            </thead>
             <tbody>
-              {loading ? <SkeletonRows cols={7} rows={8} /> : rows.length === 0
-                ? <tr><td colSpan={7}><Empty icon={<ArrowLeftRight size={38} />} text="No transactions found" /></td></tr>
-                : rows.map(tx => (
-                  <tr key={tx.id}>
-                    <td>
-                      <p style={{ fontWeight: 600, color: 'var(--ink)', fontSize: 13.5 }}>{tx.products?.name ?? '—'}</p>
-                      <p style={{ fontSize: 11.5, color: 'var(--c-text3)', fontFamily: 'var(--mono)' }}>{tx.products?.sku}</p>
-                    </td>
-                    <td>
-                      <span className={`badge ${tx.transaction_type === 'stock_in' ? 'badge-green' : tx.transaction_type === 'stock_out' ? 'badge-red' : 'badge-blue'}`}>
-                        {TX_LABEL[tx.transaction_type]}
-                      </span>
-                    </td>
-                    <td style={{ fontWeight: 700, color: txColor(tx.transaction_type), fontSize: 14 }}>
-                      {txSign(tx.transaction_type)}{tx.quantity} {tx.products?.unit}
-                    </td>
-                    <td>{tx.reference_number ? <span className="mono badge badge-navy" style={{ fontSize: 11.5 }}>{tx.reference_number}</span> : <span style={{ color: 'var(--c-text4)' }}>—</span>}</td>
-                    <td style={{ fontSize: 13 }}>{tx.users?.full_name ?? '—'}</td>
-                    <td style={{ fontSize: 13, color: 'var(--c-text3)', maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{tx.notes ?? '—'}</td>
-                    <td style={{ fontSize: 12, color: 'var(--c-text3)', whiteSpace: 'nowrap' }}>{dt(tx.created_at)}</td>
-                  </tr>
-                ))
+              {loading ? <SkeletonRows cols={colSpan} rows={8} /> : rows.length === 0
+                ? <tr><td colSpan={colSpan}><Empty icon={<ArrowLeftRight size={38} />} text="No transactions found" /></td></tr>
+                : rows.map(tx => {
+                  const isOut = tx.transaction_type === 'stock_out'
+                  return (
+                    <tr key={tx.id}>
+                      <td>
+                        <p style={{ fontWeight: 600, color: 'var(--ink)', fontSize: 13.5 }}>{tx.products?.name ?? '—'}</p>
+                        <p style={{ fontSize: 11.5, color: 'var(--c-text3)', fontFamily: 'var(--mono)' }}>{tx.products?.sku}</p>
+                      </td>
+                      <td>
+                        <span className={`badge ${tx.transaction_type === 'stock_in' ? 'badge-green' : tx.transaction_type === 'stock_out' ? 'badge-red' : 'badge-blue'}`}>
+                          {TX_LABEL[tx.transaction_type]}
+                        </span>
+                      </td>
+                      <td style={{ fontWeight: 700, color: txColor(tx.transaction_type), fontSize: 14 }}>
+                        {txSign(tx.transaction_type)}{tx.quantity} {tx.products?.unit}
+                      </td>
+                      <td>{tx.reference_number ? <span className="mono badge badge-navy" style={{ fontSize: 11.5 }}>{tx.reference_number}</span> : <span style={{ color: 'var(--c-text4)' }}>—</span>}</td>
+
+                      {showSaleCols && (
+                        <td>
+                          {isOut && tx.voucher_number
+                            ? <span className="mono badge badge-navy" style={{ fontSize: 11.5 }}>{tx.voucher_number}</span>
+                            : isOut ? <span style={{ color: 'var(--c-text4)' }}>—</span> : null}
+                        </td>
+                      )}
+                      {showSaleCols && (
+                        <td style={{ fontSize: 12.5, color: 'var(--c-text2)', whiteSpace: 'nowrap' }}>
+                          {isOut
+                            ? tx.date_of_sale
+                              ? new Date(tx.date_of_sale).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' })
+                              : <span style={{ color: 'var(--c-text4)' }}>—</span>
+                            : null}
+                        </td>
+                      )}
+                      {showSaleCols && (
+                        <td>
+                          {isOut
+                            ? tx.customer_name
+                              ? <div>
+                                  <p style={{ fontWeight: 600, fontSize: 13, color: 'var(--ink)' }}>{tx.customer_name}</p>
+                                  {tx.customer_phone && (
+                                    <p style={{ fontSize: 11.5, color: 'var(--c-text3)', display: 'flex', alignItems: 'center', gap: 3 }}>
+                                      <Phone size={10} />{tx.customer_phone}
+                                    </p>
+                                  )}
+                                </div>
+                              : <span style={{ color: 'var(--c-text4)' }}>—</span>
+                            : null}
+                        </td>
+                      )}
+
+                      <td style={{ fontSize: 13 }}>{tx.users?.full_name ?? '—'}</td>
+                      <td style={{ fontSize: 13, color: 'var(--c-text3)', maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{tx.notes ?? '—'}</td>
+                      <td style={{ fontSize: 12, color: 'var(--c-text3)', whiteSpace: 'nowrap' }}>{dt(tx.created_at)}</td>
+                    </tr>
+                  )
+                })
               }
             </tbody>
           </table>

@@ -1,7 +1,7 @@
 import { NavLink, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard, Package, ArrowLeftRight, Truck,
-  Users, BarChart3, Tag, LogOut, ChevronRight, Sun, Moon, X,
+  Users, BarChart3, Tag, LogOut, ChevronRight, Sun, Moon, X, UserCheck,
 } from 'lucide-react'
 import { useAuth } from '@/store/auth'
 import { useTheme } from '@/store/theme'
@@ -14,6 +14,7 @@ const MAIN = [
   { to: '/inventory',    label: 'Inventory',    icon: Package },
   { to: '/transactions', label: 'Transactions', icon: ArrowLeftRight },
   { to: '/suppliers',    label: 'Suppliers',    icon: Truck },
+  { to: '/customers',    label: 'Customers',    icon: UserCheck },
 ]
 const ADMIN = [
   { to: '/staff',      label: 'Staff',      icon: Users },

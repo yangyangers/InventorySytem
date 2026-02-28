@@ -58,8 +58,19 @@ export interface Transaction {
   transaction_type: TxType; quantity: number
   reference_number: string | null; notes: string | null
   performed_by: string; created_at: string
+  // Sale / stock-out fields
+  voucher_number: string | null
+  date_of_sale: string | null
+  customer_name: string | null
+  customer_phone: string | null
   products?: { name: string; sku: string; unit: string } | null
   users?: { full_name: string; username: string } | null
+}
+
+export interface Customer {
+  id: string; name: string; phone: string | null
+  email: string | null; address: string | null
+  business_id: BizId; is_active: boolean; created_at: string
 }
 
 export interface StaffUser {

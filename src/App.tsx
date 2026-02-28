@@ -9,6 +9,7 @@ import Dashboard  from '@/pages/Dashboard'
 import Inventory  from '@/pages/Inventory'
 import Transactions from '@/pages/Transactions'
 import Suppliers  from '@/pages/Suppliers'
+import Customers  from '@/pages/Customers'
 import Profile    from '@/pages/Profile'
 import Staff      from '@/pages/Staff'
 import Reports    from '@/pages/Reports'
@@ -45,6 +46,7 @@ export default function App() {
           <Route path="inventory"    element={<Inventory />} />
           <Route path="transactions" element={<Transactions />} />
           <Route path="suppliers"    element={<Suppliers />} />
+          <Route path="customers"    element={<Customers />} />
           <Route path="profile"      element={<Profile />} />
           <Route path="staff"        element={<Guard admin><Staff /></Guard>} />
           <Route path="reports"      element={<Guard admin><Reports /></Guard>} />
