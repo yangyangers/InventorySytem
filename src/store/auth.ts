@@ -10,6 +10,16 @@ interface Auth {
   init:    () => () => void
 }
 
+// Wrap any promise with a timeout
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error(`Timed out after ${ms}ms`)), ms)
+    ),
+  ])
+}
+
 export const useAuth = create<Auth>()((set) => ({
   user:  null,
   ready: false,
@@ -22,23 +32,22 @@ export const useAuth = create<Auth>()((set) => ({
   },
 
   init: () => {
-    // Check for existing session on app load
-    sb.auth.getSession().then(async ({ data: { session } }) => {
-      if (session) {
-        const profile = await fetchProfile(session.user.id, session.user.email)
-        set({ user: profile, ready: true })
-      } else {
-        set({ ready: true })
-      }
-    })
-
-    // Listen for sign-in / sign-out / token refresh
     const { data: { subscription } } = sb.auth.onAuthStateChange(async (event, session) => {
       if (session) {
-        const profile = await fetchProfile(session.user.id, session.user.email)
-        set({ user: profile })
+        try {
+          // 8 second timeout — if Supabase hangs, we still mark ready
+          const profile = await withTimeout(
+            fetchProfile(session.user.id, session.user.email),
+            8000
+          )
+          set({ user: profile, ready: true })
+        } catch (err) {
+          console.warn('fetchProfile failed or timed out:', err)
+          // Still mark ready so the app doesn't stay stuck on spinner
+          set({ user: null, ready: true })
+        }
       } else {
-        set({ user: null })
+        set({ user: null, ready: true })
       }
     })
 
