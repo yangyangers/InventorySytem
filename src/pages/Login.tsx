@@ -26,6 +26,11 @@ export default function Login() {
   }
 
   async function submit(e: React.FormEvent) {
+    // Timeout after 12 seconds so it never hangs forever
+    const timeout = setTimeout(() => {
+      setLoading(false)
+      setErr("⏱ Request timed out — your network may be blocking this site. Try: (1) switching to mobile data, (2) disabling VPN or ad blocker, (3) trying a different browser like Chrome.")
+    }, 12000)
     e.preventDefault()
     setErr(''); setLoading(true)
     try {
@@ -37,16 +42,25 @@ export default function Login() {
       const { error } = await sb.auth.signInWithPassword({ email, password })
       if (error) {
         if (error.message.toLowerCase().includes('invalid'))
-          setErr('Incorrect credentials. Please try again.')
+          setErr('Incorrect password or account not found. Please try again.')
         else if (error.message.toLowerCase().includes('email not confirmed'))
           setErr('Please confirm your email before signing in.')
+        else if (error.message.toLowerCase().includes('fetch') || error.message.toLowerCase().includes('network'))
+          setErr('🌐 Network error — your connection could not reach the server. Try switching to mobile data, disabling your VPN or ad blocker, or using a different browser.')
         else
-          setErr(error.message)
+          setErr(`Error: ${error.message}`)
         return
       }
+      clearTimeout(timeout)
       nav('/')
-    } catch { setErr('Connection error — check your Supabase config.') }
-    finally { setLoading(false) }
+    } catch (e: any) {
+      const msg = e?.message ?? ''
+      if (msg.toLowerCase().includes('fetch') || msg.toLowerCase().includes('network') || msg.toLowerCase().includes('failed'))
+        setErr('🌐 Network error — could not connect to the server. Try: (1) switching to mobile data, (2) disabling VPN or ad blocker, (3) trying Chrome browser.')
+      else
+        setErr(`Unexpected error: ${msg || 'Unknown error. Please try again.'}`)
+    }
+    finally { clearTimeout(timeout); setLoading(false) }
   }
 
   return (
