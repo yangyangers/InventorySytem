@@ -319,7 +319,7 @@ export default function POS() {
             </div>
             <div>
               <p style={{ fontWeight: 800, color: 'var(--ink)', fontSize: 15 }}>Sale Details</p>
-              <p style={{ color: 'var(--c-text3)', fontSize: 12.5 }}>Customer, voucher, date</p>
+              <p style={{ color: 'var(--c-text3)', fontSize: 12.5 }}>Customer, reference number, date</p>
             </div>
           </div>
 

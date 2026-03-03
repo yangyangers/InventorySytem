@@ -3,7 +3,7 @@ import { Plus, Search, Edit2, Trash2, ArrowLeftRight, X, ChevronLeft, ChevronRig
 import { sb } from '@/lib/supabase'
 import { useAuth } from '@/store/auth'
 import { Product, Category, Supplier, Customer, UNITS } from '@/types'
-import { php, stockBadge, genVoucherNumber } from '@/lib/utils'
+import { php, stockBadge, genVoucherNumber, genRefNumber, genSkuPrefix } from '@/lib/utils'
 import { Modal, Alert, Field, SkeletonRows, Empty, Confirm } from '@/components/ui'
 import { useToast } from '@/components/ui/Toast'
 
@@ -103,7 +103,7 @@ function StockBar({ quantity, reorderLevel }: { quantity: number; reorderLevel: 
 // ─────────────────────────────────────────────────────────────────────────────
 
 const BLANK = { sku:'', name:'', description:'', category_id:'', supplier_id:'', unit:'pcs', quantity:0, reorder_level:10, cost_price:0, selling_price:0 }
-const BLANK_TX = { type: 'stock_in' as 'stock_in'|'stock_out'|'adjustment', qty:1, notes:'', voucher:'', date_of_sale:'', customer_name:'', customer_phone:'' }
+const BLANK_TX = { type: 'stock_in' as 'stock_in'|'stock_out'|'adjustment', qty:1, notes:'', voucher_number:'', reference_number:'', date_of_sale:'', customer_name:'', customer_phone:'' }
 
 export default function Inventory() {
   const { user } = useAuth()
@@ -126,6 +126,7 @@ export default function Inventory() {
   const [form, setForm]         = useState({ ...BLANK })
   const [tx, setTx]             = useState({ ...BLANK_TX })
   const [saving, setSaving]     = useState(false)
+  const [skuLoading, setSkuLoading] = useState(false)
   const [err, setErr]           = useState('')
   const [ok, setOk]             = useState('')
   const PER = 20
@@ -163,24 +164,41 @@ export default function Inventory() {
   useEffect(() => { loadMeta() }, [loadMeta])
   useEffect(() => { loadRows() }, [loadRows])
 
-  // Backfill voucher numbers for existing products that don't have one
-  useEffect(() => {
-    async function backfillVouchers() {
-      if (!user) return
-      const { data } = await sb.from('products')
-        .select('id')
+  // Auto-resolve SKU: look up existing product with same name in this business,
+  // if found reuse its SKU, otherwise generate a new one from the prefix + DB count.
+  async function resolveSkuForName(name: string): Promise<string> {
+    if (!name.trim() || !user) return ''
+    setSkuLoading(true)
+    try {
+      // 1. Check if a product with this exact name already exists in this business
+      const { data: existing } = await sb.from('products')
+        .select('sku')
         .eq('business_id', user.business_id)
+        .ilike('name', name.trim())
         .eq('is_active', true)
-        .is('voucher_number', null)
-      if (!data || data.length === 0) return
-      for (const p of data) {
-        const vNum = genVoucherNumber()
-        await sb.from('products').update({ voucher_number: vNum }).eq('id', p.id)
+        .limit(1)
+        .maybeSingle()
+      if (existing?.sku) return existing.sku
+
+      // 2. No match — derive prefix and find the next available counter
+      const prefix = genSkuPrefix(name)
+      const { data: withPrefix } = await sb.from('products')
+        .select('sku')
+        .eq('business_id', user.business_id)
+        .ilike('sku', `${prefix}-%`)
+        .order('sku', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      if (withPrefix?.sku) {
+        const parts = withPrefix.sku.split('-')
+        const lastNum = parseInt(parts[parts.length - 1], 10) || 0
+        return `${prefix}-${String(lastNum + 1).padStart(4, '0')}`
       }
-      if (data.length > 0) loadRows()
+      return `${prefix}-0001`
+    } finally {
+      setSkuLoading(false)
     }
-    backfillVouchers()
-  }, [user])
+  }
 
   function openAdd()  { setForm({ ...BLANK }); setErr(''); setOk(''); setModal('add') }
   function openEdit(p: Product) {
@@ -188,23 +206,39 @@ export default function Inventory() {
     setForm({ sku:p.sku, name:p.name, description:p.description??'', category_id:p.category_id??'', supplier_id:p.supplier_id??'', unit:p.unit, quantity:p.quantity, reorder_level:p.reorder_level, cost_price:p.cost_price, selling_price:p.selling_price })
     setErr(''); setOk(''); setModal('edit')
   }
-  function openTx(p: Product) { setSelected(p); setTx({ ...BLANK_TX }); setErr(''); setTxModal(true) }
+  function openTx(p: Product) {
+    setSelected(p)
+    // Pre-generate the appropriate number based on movement type (defaults to stock_in)
+    setTx({ ...BLANK_TX, voucher_number: genVoucherNumber(), reference_number: '' })
+    setErr(''); setTxModal(true)
+  }
   function closeAll() { setModal(null); setTxModal(false); setDelItem(null); setSelected(null); setErr(''); setOk('') }
   function f(k: string, v: any) {
     const nums = ['quantity','reorder_level','cost_price','selling_price']
     setForm(p => ({ ...p, [k]: nums.includes(k) ? (parseFloat(v)||0) : v }))
+    // Auto-resolve SKU when the product name changes (add modal only)
+    if (k === 'name' && modal === 'add') {
+      resolveSkuForName(v).then(sku => { if (sku) setForm(prev => ({ ...prev, sku })) })
+    }
   }
 
   async function saveProd(e: React.FormEvent) {
     e.preventDefault(); setSaving(true); setErr(''); setOk('')
     try {
-      const payload = { ...form, business_id: user!.business_id, is_active:true, category_id: form.category_id||null, supplier_id: form.supplier_id||null, updated_at: new Date().toISOString() }
+      // Ensure SKU is resolved before saving
+      let sku = form.sku
+      if (modal === 'add' && !sku) {
+        sku = await resolveSkuForName(form.name)
+        if (!sku) { setErr('Could not generate SKU. Please enter a product name.'); return }
+        setForm(p => ({ ...p, sku }))
+      }
+      const payload = { ...form, sku, business_id: user!.business_id, is_active:true, category_id: form.category_id||null, supplier_id: form.supplier_id||null, updated_at: new Date().toISOString() }
       if (modal === 'add') {
-        const voucherNum = genVoucherNumber()
-        const { data: created, error } = await sb.from('products').insert({ ...payload, voucher_number: voucherNum }).select('id').single()
-        if (error) { setErr(error.message.includes('unique') ? 'SKU already exists for this business.' : error.message); return }
+        const { data: created, error } = await sb.from('products').insert({ ...payload }).select('id').single()
+        if (error) { setErr(error.message.includes('unique') ? 'A product with this SKU already exists for this business.' : error.message); return }
         if (form.quantity > 0 && created) {
-          await sb.from('transactions').insert({ product_id: created.id, business_id: user!.business_id, transaction_type: 'stock_in', quantity: form.quantity, reference_number: null, notes: 'Initial stock entry', performed_by: user!.id })
+          const voucherNum = genVoucherNumber()
+          await sb.from('transactions').insert({ product_id: created.id, business_id: user!.business_id, transaction_type: 'stock_in', quantity: form.quantity, voucher_number: voucherNum, reference_number: null, notes: 'Initial stock entry', performed_by: user!.id })
         }
         toast.success('Product added!', form.name + ' was added to inventory')
       } else {
@@ -225,13 +259,15 @@ export default function Inventory() {
       if (tx.type === 'stock_in')       newQty += qty
       else if (tx.type === 'stock_out') { if (qty > p.quantity) { setErr(`Only ${p.quantity} ${p.unit} available`); return }; newQty -= qty }
       else                               newQty = qty
+      const isIn  = tx.type === 'stock_in'
       const isOut = tx.type === 'stock_out'
       const { error } = await sb.from('transactions').insert({
         product_id: p.id, business_id: user!.business_id,
         transaction_type: tx.type, quantity: qty,
-        reference_number: isOut ? (tx.voucher||null) : null, notes: tx.notes||null,
+        voucher_number:   isIn  ? (tx.voucher_number || null)   : null,
+        reference_number: isOut ? (tx.reference_number || null) : null,
+        notes: tx.notes||null,
         performed_by: user!.id,
-        voucher_number: null,
         date_of_sale: isOut ? (tx.date_of_sale||null) : null,
         customer_name: isOut ? (tx.customer_name||null) : null,
         customer_phone: isOut ? (tx.customer_phone||null) : null,
@@ -300,7 +336,7 @@ export default function Inventory() {
           <table className="table">
             <thead>
               <tr>
-                <th>Product</th><th>SKU</th><th>Voucher</th><th>Category</th><th>Supplier</th>
+                <th>Product</th><th>SKU</th><th>Category</th><th>Supplier</th>
                 <th>Stock</th><th style={{ textAlign: 'center' }}>Status</th><th>Cost</th><th>Selling Price</th>
                 <th style={{ textAlign: 'right' }}>Actions</th>
               </tr>
@@ -320,7 +356,6 @@ export default function Inventory() {
                         {p.description && <p style={{ fontSize: 11.5, color: 'var(--c-text3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 200 }}>{p.description}</p>}
                       </td>
                       <td><code className="mono badge badge-navy" style={{ fontSize: 11.5, borderRadius: 6, padding: '3px 8px' }}>{p.sku}</code></td>
-                      <td><code className="mono" style={{ fontSize: 11, color: 'var(--c-text3)', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 6, padding: '2px 7px' }}>{p.voucher_number ?? <span style={{ color: 'var(--c-text4)' }}>—</span>}</code></td>
                       <td style={{ fontSize: 13, color: 'var(--c-text2)' }}>{(p as any).categories?.name ?? <span style={{ color: 'var(--c-text4)' }}>—</span>}</td>
                       <td style={{ fontSize: 13, color: 'var(--c-text2)' }}>{(p as any).suppliers?.name ?? <span style={{ color: 'var(--c-text4)' }}>—</span>}</td>
                       <td>
@@ -391,9 +426,21 @@ export default function Inventory() {
           <form onSubmit={saveProd} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             {err && <Alert msg={err} type="err" />}
             {ok  && <Alert msg={ok}  type="ok"  />}
+            <Field label="Product Name" required>
+              <input className="input" required value={form.name} onChange={e => f('name', e.target.value)} placeholder="Full product name" />
+            </Field>
             <div className="grid-2">
-              <Field label="SKU" required>
-                <input className="input input-mono" required value={form.sku} onChange={e => f('sku', e.target.value)} placeholder="WB-001" />
+              <Field label="SKU" hint={modal === 'add' ? (skuLoading ? 'Looking up…' : 'Auto-generated from name') : undefined}>
+                <div style={{ position: 'relative' }}>
+                  <input
+                    className="input input-mono"
+                    value={skuLoading ? 'Generating…' : form.sku}
+                    onChange={modal === 'edit' ? e => f('sku', e.target.value) : undefined}
+                    readOnly={modal === 'add'}
+                    placeholder={modal === 'add' ? 'Type a name above' : 'e.g. CEM-0001'}
+                    style={{ background: modal === 'add' ? 'var(--bg)' : undefined, color: skuLoading ? 'var(--c-text4)' : 'var(--ink)', fontWeight: 700 }}
+                  />
+                </div>
               </Field>
               <Field label="Unit" required>
                 <select className="input" value={form.unit} onChange={e => f('unit', e.target.value)}>
@@ -401,9 +448,6 @@ export default function Inventory() {
                 </select>
               </Field>
             </div>
-            <Field label="Product Name" required>
-              <input className="input" required value={form.name} onChange={e => f('name', e.target.value)} placeholder="Full product name" />
-            </Field>
             <Field label="Description">
               <textarea className="input" rows={2} value={form.description} onChange={e => f('description', e.target.value)} placeholder="Optional description…" />
             </Field>
@@ -469,7 +513,12 @@ export default function Inventory() {
             <Field label="Movement Type" required>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginTop: 4 }}>
                 {TX_OPTS.map(({ t, label, color, bg, border }) => (
-                  <button key={t} type="button" onClick={() => setTx(p => ({ ...p, type: t }))}
+                  <button key={t} type="button" onClick={() => setTx(p => ({
+                    ...p, type: t,
+                    // Auto-generate the right number when switching type
+                    voucher_number:   t === 'stock_in'  ? (p.voucher_number  || genVoucherNumber()) : p.voucher_number,
+                    reference_number: t === 'stock_out' ? (p.reference_number || genRefNumber())    : p.reference_number,
+                  }))}
                     style={{
                       padding: '12px 8px', borderRadius: 'var(--radius)',
                       border: "2px solid " + (tx.type === t ? border : "var(--border)"),
@@ -488,6 +537,20 @@ export default function Inventory() {
             <Field label={tx.type === 'adjustment' ? 'Set quantity to' : 'Quantity'} required>
               <input className="input" type="number" min={1} required value={tx.qty} onChange={e => setTx(p => ({ ...p, qty: Number(e.target.value) }))} />
             </Field>
+
+            {/* Voucher Number — shown for Stock IN */}
+            {tx.type === 'stock_in' && (
+              <Field label="Voucher Number" hint="Auto-generated inventory document number">
+                <input
+                  className="input input-mono"
+                  value={tx.voucher_number}
+                  onChange={e => setTx(p => ({ ...p, voucher_number: e.target.value }))}
+                  placeholder="VCH-YYYYMMDD-0001"
+                  style={{ fontWeight: 700 }}
+                />
+              </Field>
+            )}
+
             <Field label="Notes">
               <textarea className="input" rows={2} placeholder="Optional notes…" value={tx.notes} onChange={e => setTx(p => ({ ...p, notes: e.target.value }))} />
             </Field>
@@ -497,8 +560,8 @@ export default function Inventory() {
                   <p style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--c-text3)', letterSpacing: '.07em', textTransform: 'uppercase', marginBottom: 12 }}>Sale Details</p>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 13 }}>
                     <div className="grid-2">
-                      <Field label="Reference Number">
-                        <input className="input input-mono" placeholder="REF-YYYYMMDD-0001" value={tx.voucher} onChange={e => setTx(p => ({ ...p, voucher: e.target.value }))} />
+                      <Field label="Reference Number" hint="Customer receipt number">
+                        <input className="input input-mono" placeholder="REF-YYYYMMDD-0001" value={tx.reference_number} onChange={e => setTx(p => ({ ...p, reference_number: e.target.value }))} style={{ fontWeight: 700 }} />
                       </Field>
                       <Field label="Date of Sale">
                         <input className="input" type="date" value={tx.date_of_sale} onChange={e => setTx(p => ({ ...p, date_of_sale: e.target.value }))} />

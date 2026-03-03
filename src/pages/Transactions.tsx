@@ -71,7 +71,7 @@ export function Transactions() {
                 <th>Product</th>
                 <th>Type</th>
                 <th>Qty</th>
-                {showSaleCols && <th style={{ whiteSpace: 'nowrap' }}><span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><Receipt size={12} />Voucher</span></th>}
+                {showSaleCols && <th style={{ whiteSpace: 'nowrap' }}><span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><Receipt size={12} />Doc / Ref #</span></th>}
                 {showSaleCols && <th style={{ whiteSpace: 'nowrap' }}><span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><Calendar size={12} />Date of Sale</span></th>}
                 {showSaleCols && <th style={{ whiteSpace: 'nowrap' }}><span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><User size={12} />Customer</span></th>}
                 <th>By</th>
@@ -100,9 +100,11 @@ export function Transactions() {
                       </td>
                       {showSaleCols && (
                         <td>
-                          {isOut && (tx.reference_number || tx.voucher_number)
-                            ? <span className="mono badge badge-navy" style={{ fontSize: 11.5 }}>{tx.reference_number || tx.voucher_number}</span>
-                            : isOut ? <span style={{ color: 'var(--c-text4)' }}>—</span> : null}
+                          {tx.transaction_type === 'stock_in' && tx.voucher_number
+                            ? <span className="mono badge badge-blue" style={{ fontSize: 11.5 }}>{tx.voucher_number}</span>
+                            : tx.transaction_type === 'stock_out' && tx.reference_number
+                            ? <span className="mono badge badge-navy" style={{ fontSize: 11.5 }}>{tx.reference_number}</span>
+                            : <span style={{ color: 'var(--c-text4)' }}>—</span>}
                         </td>
                       )}
                       {showSaleCols && (
