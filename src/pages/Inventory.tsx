@@ -5,6 +5,7 @@ import { useAuth } from '@/store/auth'
 import { Product, Category, Supplier, Customer, UNITS } from '@/types'
 import { php, stockBadge, genVoucherNumber } from '@/lib/utils'
 import { Modal, Alert, Field, SkeletonRows, Empty, Confirm } from '@/components/ui'
+import { useToast } from '@/components/ui/Toast'
 
 // ── Stock Level Bar ──────────────────────────────────────────────────────────
 const stockBarStyles = `
@@ -106,6 +107,7 @@ const BLANK_TX = { type: 'stock_in' as 'stock_in'|'stock_out'|'adjustment', qty:
 
 export default function Inventory() {
   const { user } = useAuth()
+  const toast = useToast()
   const [rows, setRows]       = useState<Product[]>([])
   const [cats, setCats]       = useState<Category[]>([])
   const [sups, setSups]       = useState<Supplier[]>([])
@@ -204,13 +206,13 @@ export default function Inventory() {
         if (form.quantity > 0 && created) {
           await sb.from('transactions').insert({ product_id: created.id, business_id: user!.business_id, transaction_type: 'stock_in', quantity: form.quantity, reference_number: null, notes: 'Initial stock entry', performed_by: user!.id })
         }
-        setOk('Product added successfully!')
+        toast.success('Product added!', form.name + ' was added to inventory')
       } else {
         const { error } = await sb.from('products').update(payload).eq('id', selected!.id)
         if (error) { setErr(error.message); return }
-        setOk('Product updated successfully!')
+        toast.success('Product updated!', form.name + ' was saved successfully')
       }
-      setTimeout(closeAll, 1000); loadRows()
+      closeAll(); loadRows()
     } finally { setSaving(false) }
   }
 
@@ -236,8 +238,8 @@ export default function Inventory() {
       })
       if (error) { setErr(error.message); return }
       await sb.from('products').update({ quantity: newQty, updated_at: new Date().toISOString() }).eq('id', p.id)
-      setOk(`Done! New quantity: ${newQty} ${p.unit}`)
-      setTimeout(closeAll, 1000); loadRows()
+      toast.success('Transaction recorded!', `New quantity: ${newQty} ${p.unit}`)
+      closeAll(); loadRows()
     } finally { setSaving(false) }
   }
 

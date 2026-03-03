@@ -4,6 +4,7 @@ import { sb } from '@/lib/supabase'
 import { useAuth } from '@/store/auth'
 import { Customer, Transaction } from '@/types'
 import { Modal, Alert, Field, Confirm } from '@/components/ui'
+import { useToast } from '@/components/ui/Toast'
 
 const BLANK = { name: '', phone: '', email: '', address: '' }
 
@@ -17,6 +18,7 @@ interface PurchaseGroup {
 
 export default function Customers() {
   const { user } = useAuth()
+  const toast = useToast()
   const [items, setItems]     = useState<Customer[]>([])
   const [loading, setLoading] = useState(true)
   const [modal, setModal]     = useState(false)
@@ -60,8 +62,8 @@ export default function Customers() {
       : await sb.from('customers').insert(payload)
     setSaving(false)
     if (error) { setErr(error.message); return }
-    setOk(editing ? 'Customer updated!' : 'Customer added!')
-    setTimeout(() => { setModal(false); load() }, 800)
+    toast.success(editing ? 'Customer updated!' : 'Customer added!', form.name || '')
+    setModal(false); load()
   }
 
   async function archive() {

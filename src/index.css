@@ -677,3 +677,69 @@ body,
 [data-theme="dark"] .topbar-biz-name > div:last-of-type {
   opacity: 0.85;
 }
+
+/* ── Command palette search btn ────────────────── */
+.topbar-search-btn {
+  display: flex !important;
+}
+@media (max-width: 768px) {
+  .topbar-search-btn .cmd-search-label { display: none; }
+  .topbar-search-btn kbd { display: none; }
+}
+@media (max-width: 480px) {
+  .topbar-search-btn { display: none !important; }
+}
+
+/* ── Focus rings for accessibility ─────────────── */
+:focus-visible {
+  outline: 2px solid var(--c-teal);
+  outline-offset: 2px;
+}
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 2px solid var(--c-teal);
+  outline-offset: 2px;
+  border-radius: var(--radius-xs);
+}
+
+/* ── Smooth page transitions ────────────────────── */
+.page > * { animation: fadeUp 0.25s cubic-bezier(.16,1,.3,1) both; }
+
+/* ── Better button active state ─────────────────── */
+.btn:active:not(:disabled) {
+  transform: scale(0.97) translateY(1px) !important;
+}
+
+/* ── Tooltip-style kbd hints ─────────────────────── */
+kbd {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  padding: 1px 5px;
+  background: var(--c-bg);
+  border: 1.5px solid var(--c-border);
+  border-radius: 4px;
+  color: var(--c-text3);
+  box-shadow: 0 1px 2px rgba(0,0,0,0.06);
+}
+[data-theme="dark"] kbd {
+  background: var(--c-bg2);
+  border-color: var(--c-border2);
+}
+
+/* ── Input with icon wrapper fix ─────────────────── */
+.input-wrap { position: relative; }
+.input-wrap .input-icon {
+  position: absolute; left: 11px; top: 50%;
+  transform: translateY(-50%); color: var(--c-text4);
+  pointer-events: none;
+}
+.input-wrap .input { padding-left: 36px; }
+
+/* ── Smooth dark mode for new elements ──────────── */
+kbd,
+.topbar-search-btn {
+  transition: background-color .22s ease, border-color .22s ease, color .18s ease;
+}

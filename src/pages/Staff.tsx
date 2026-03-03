@@ -6,6 +6,7 @@ import { useAuth } from '@/store/auth'
 import { BIZ, BizId, StaffUser } from '@/types'
 import { avatarColor, bizColor } from '@/lib/utils'
 import { Modal, Alert, Field, SkeletonRows, Empty, Confirm } from '@/components/ui'
+import { useToast } from '@/components/ui/Toast'
 
 const BLANK = { full_name: '', username: '', email: '', password: '', role: 'staff' as 'admin'|'staff', business_id: 'wellbuild' as BizId }
 
@@ -31,6 +32,7 @@ async function manageStaff(action: string, payload: Record<string, any>) {
 
 export function Staff() {
   const { user } = useAuth()
+  const toast = useToast()
   const [rows, setRows]         = useState<StaffUser[]>([])
   const [loading, setLoading]   = useState(true)
   const [modal, setModal]       = useState(false)
@@ -87,8 +89,8 @@ export function Staff() {
           business_id: form.business_id,
         })
       }
-      setOk(editing ? 'Staff updated!' : 'Account created! They can now log in.')
-      setTimeout(() => { setModal(false); load() }, 900)
+      toast.success(editing ? 'Staff updated!' : 'Account created!', editing ? form.full_name : 'They can now log in.')
+      setModal(false); load()
     } catch (e: any) {
       setErr(e.message || 'Something went wrong')
     } finally {

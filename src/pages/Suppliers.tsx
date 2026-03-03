@@ -4,11 +4,13 @@ import { sb } from '@/lib/supabase'
 import { useAuth } from '@/store/auth'
 import { Supplier } from '@/types'
 import { Modal, Alert, Field, Confirm } from '@/components/ui'
+import { useToast } from '@/components/ui/Toast'
 
 const BLANK = { name: '', contact_person: '', email: '', phone: '', address: '' }
 
 export default function Suppliers() {
   const { user } = useAuth()
+  const toast = useToast()
   const [items, setItems]   = useState<Supplier[]>([])
   const [loading, setLoading] = useState(true)
   const [modal, setModal]   = useState(false)
@@ -42,8 +44,8 @@ export default function Suppliers() {
       : await sb.from('suppliers').insert(payload)
     setSaving(false)
     if (error) { setErr(error.message); return }
-    setOk(editing ? 'Supplier updated!' : 'Supplier added!')
-    setTimeout(() => { setModal(false); load() }, 800)
+    toast.success(editing ? 'Supplier updated!' : 'Supplier added!', form.name)
+    setModal(false); load()
   }
 
   async function archive() {

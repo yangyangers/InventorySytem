@@ -1,32 +1,52 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { Link } from 'react-router-dom'
-import { Package, DollarSign, AlertTriangle, TrendingDown, ArrowUpRight, ArrowDownRight, RotateCcw, ShoppingCart } from 'lucide-react'
+import { Package, DollarSign, AlertTriangle, TrendingDown, ArrowUpRight, RotateCcw, ShoppingCart } from 'lucide-react'
 import { sb } from '@/lib/supabase'
 import { useAuth } from '@/store/auth'
 import { Product, Transaction, BIZ, BizId } from '@/types'
 import { php, txColor, txSign } from '@/lib/utils'
 import { StatCard, SkeletonRows } from '@/components/ui'
+import { useToast } from '@/components/ui/Toast'
 
 export default function Dashboard() {
   const { user } = useAuth()
+  const toast = useToast()
   const [products, setProducts] = useState<Product[]>([])
   const [txns, setTxns]         = useState<Transaction[]>([])
   const [loading, setLoading]   = useState(true)
+  const isFirstLoad = useRef(true)
 
   async function load() {
     if (!user) return
     setLoading(true)
-    const [p, t] = await Promise.all([
-      sb.from('products').select('*').eq('business_id', user.business_id).eq('is_active', true),
-      sb.from('transactions')
-        .select('*, products(name,sku,unit), users(full_name,username)')
-        .eq('business_id', user.business_id)
-        .order('created_at', { ascending: false }).limit(8),
-    ])
-    setProducts(p.data as Product[] ?? [])
-    setTxns(t.data as Transaction[] ?? [])
-    setLoading(false)
+    try {
+      const [p, t] = await Promise.all([
+        sb.from('products').select('*').eq('business_id', user.business_id).eq('is_active', true),
+        sb.from('transactions')
+          .select('*, products(name,sku,unit), users(full_name,username)')
+          .eq('business_id', user.business_id)
+          .order('created_at', { ascending: false }).limit(8),
+      ])
+
+      if (p.error) throw p.error
+      if (t.error) throw t.error
+
+      setProducts(p.data as Product[] ?? [])
+      setTxns(t.data as Transaction[] ?? [])
+
+      // Only show toast on manual refresh, not on initial page load
+      if (!isFirstLoad.current) {
+        toast.success('Dashboard refreshed', 'Data is up to date')
+      }
+      isFirstLoad.current = false
+
+    } catch (err: any) {
+      toast.error('Failed to load data', err?.message ?? 'Check your connection and try again')
+    } finally {
+      setLoading(false)
+    }
   }
+
   useEffect(() => { load() }, [user])
   if (!user) return null
 

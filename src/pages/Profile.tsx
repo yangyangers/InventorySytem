@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Check, Lock, User, Palette, Shield, Loader } from 'lucide-react'
 import { sb } from '@/lib/supabase'
 import { useAuth } from '@/store/auth'
+import { useToast } from '@/components/ui/Toast'
 import { BIZ, BizId, AVATAR_COLORS } from '@/types'
 import { avatarColor, bizColor } from '@/lib/utils'
 import { Alert } from '@/components/ui'
@@ -9,6 +10,7 @@ import { Alert } from '@/components/ui'
 type Tab = 'profile' | 'security' | 'appearance'
 
 export default function Profile() {
+  const toast = useToast()
   const { user, setUser } = useAuth()
   const [tab, setTab]     = useState<Tab>('profile')
   const [dbUser, setDbUser] = useState<any>(null)
@@ -31,7 +33,7 @@ export default function Profile() {
     })
   }, [user])
 
-  function flash(t: 'ok'|'err', m: string) { setMsg({ t, m }); if (t==='ok') setTimeout(() => setMsg(null), 3500) }
+  function flash(t: 'ok'|'err', m: string) { setMsg({ t, m }); if (t==='ok') { toast.success(m); setTimeout(() => setMsg(null), 3500) } }
 
   async function saveProfile(e: React.FormEvent) {
     e.preventDefault(); setSaving(true); setMsg(null)

@@ -1,5 +1,5 @@
 import { useLocation, NavLink } from 'react-router-dom'
-import { Menu, Sun, Moon } from 'lucide-react'
+import { Menu, Sun, Moon, Command, Search } from 'lucide-react'
 import { useAuth } from '@/store/auth'
 import { useTheme } from '@/store/theme'
 import { BIZ, BizId } from '@/types'
@@ -16,9 +16,9 @@ const META: Record<string, { title: string; emoji: string; sub: string }> = {
   '/categories':   { title: 'Categories',   emoji: '🏷️', sub: 'Product categories'      },
 }
 
-interface Props { onMenuClick: () => void }
+interface Props { onMenuClick: () => void; onCommandPalette?: () => void }
 
-export default function Topbar({ onMenuClick }: Props) {
+export default function Topbar({ onMenuClick, onCommandPalette }: Props) {
   const { user } = useAuth()
   const { dark, toggle } = useTheme()
   const { pathname } = useLocation()
@@ -110,6 +110,22 @@ export default function Topbar({ onMenuClick }: Props) {
             {biz.name}
           </span>
         </div>
+
+        {/* Command palette trigger */}
+        {onCommandPalette && (
+          <button
+            onClick={onCommandPalette}
+            title="Quick search (Ctrl+K)"
+            className="topbar-search-btn"
+            style={{ display:"flex",alignItems:"center",gap:7,padding:"5px 11px",borderRadius:7,background:"var(--c-bg)",border:"1.5px solid var(--c-border)",cursor:"pointer",color:"var(--c-text3)",fontSize:12,fontWeight:600,fontFamily:"var(--font)",transition:"all .16s" }}
+            onMouseEnter={e=>{const el=e.currentTarget;el.style.background="var(--c-border)";el.style.color="var(--c-text2)"}}
+            onMouseLeave={e=>{const el=e.currentTarget;el.style.background="var(--c-bg)";el.style.color="var(--c-text3)"}}
+          >
+            <Search size={13} />
+            <span className="cmd-search-label">Search</span>
+            <kbd style={{ padding:"1px 5px",borderRadius:4,fontSize:10,fontWeight:700,background:"var(--c-white)",border:"1.5px solid var(--c-border)",color:"var(--c-text4)",fontFamily:"var(--mono)",marginLeft:2 }}>Ctrl K</kbd>
+          </button>
+        )}
 
         {/* Separator */}
         <div style={{ width: 1, height: 22, background: 'var(--c-border)', margin: '0 1px' }} />

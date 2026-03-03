@@ -4,9 +4,11 @@ import { sb } from '@/lib/supabase'
 import { useAuth } from '@/store/auth'
 import { Category } from '@/types'
 import { Alert, Confirm } from '@/components/ui'
+import { useToast } from '@/components/ui/Toast'
 
 export default function Categories() {
   const { user } = useAuth()
+  const toast = useToast()
   const [cats, setCats]   = useState<Category[]>([])
   const [loading, setLoading] = useState(true)
   const [form, setForm]   = useState({ name: '', desc: '' })
@@ -30,7 +32,7 @@ export default function Categories() {
     setSaving(false)
     if (error) { setErr(error.message.includes('unique') ? 'Category already exists' : error.message); return }
     setForm({ name: '', desc: '' })
-    setOk('Category added!')
+    toast.success('Category added!')
     setTimeout(() => setOk(''), 2000)
     load()
   }
