@@ -3,7 +3,7 @@ import { Plus, Search, Edit2, Trash2, ArrowLeftRight, X, ChevronLeft, ChevronRig
 import { sb } from '@/lib/supabase'
 import { useAuth } from '@/store/auth'
 import { Product, Category, Supplier, Customer, UNITS } from '@/types'
-import { php, stockBadge } from '@/lib/utils'
+import { php, stockBadge, genVoucherNumber } from '@/lib/utils'
 import { Modal, Alert, Field, SkeletonRows, Empty, Confirm } from '@/components/ui'
 
 // ── Stock Level Bar ──────────────────────────────────────────────────────────
@@ -31,18 +31,26 @@ function StockBar({ quantity, reorderLevel }: { quantity: number; reorderLevel: 
   return (
     <>
       <style>{stockBarStyles}</style>
-      <div title={label} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+      <div title={label} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
         {/* Pill track */}
-        <div style={{
-          width: 14, height: 52, borderRadius: 99,
-          background: track, overflow: 'hidden',
-          display: 'flex', flexDirection: 'column', justifyContent: 'flex-end',
-          boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.08)',
-        }}>
+        <div
+          style={{
+            position: 'relative',
+            width: 14,
+            height: 52,
+            borderRadius: 99,
+            background: track,
+            overflow: 'hidden',
+            boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.08)',
+          }}
+        >
           <div
             className={isOut ? 'sb-blink' : undefined}
             style={{
-              width: '100%',
+              position: 'absolute',
+              left: 0,
+              right: 0,
+              bottom: 0,
               height: isOut ? '100%' : `${fillPct}%`,
               minHeight: isOut ? 0 : 6,
               background: `linear-gradient(to top, ${colorDark}, ${color})`,
@@ -50,16 +58,43 @@ function StockBar({ quantity, reorderLevel }: { quantity: number; reorderLevel: 
               transition: 'height 0.5s ease',
             }}
           />
+
+          {/* Current quantity badge (moves with the fill) */}
+          {!isOut && (
+            <div
+              style={{
+                position: 'absolute',
+                left: 18,
+                bottom: `calc(${fillPct}% - 8px)`,
+                transform: 'translateY(50%)',
+                fontSize: 10,
+                fontWeight: 800,
+                padding: '2px 6px',
+                borderRadius: 999,
+                background: 'var(--c-white)',
+                border: '1px solid var(--border)',
+                color: 'var(--ink)',
+                boxShadow: '0 6px 16px rgba(0,0,0,0.06)',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {quantity}
+            </div>
+          )}
         </div>
-        {/* Label */}
-        <span style={{
-          fontSize: 10, fontWeight: 600,
-          color: colorDark,
-          whiteSpace: 'nowrap',
-          letterSpacing: '0.01em',
-        }}>
-          {statusTxt}
-        </span>
+
+        {/* Numeric scale */}
+        <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', height: 52, paddingRight: 2 }}>
+          <span style={{ fontSize: 10, color: 'var(--c-text4)', fontFamily: 'var(--mono)' }}>{maxDisplay}</span>
+          <span style={{ fontSize: 10, color: 'var(--c-text4)', fontFamily: 'var(--mono)' }}>{reorderLevel}</span>
+          <span style={{ fontSize: 10, color: 'var(--c-text4)', fontFamily: 'var(--mono)' }}>0</span>
+        </div>
+
+        {/* Status */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 64 }}>
+          <span style={{ fontSize: 10, fontWeight: 700, color: colorDark, letterSpacing: '0.01em' }}>{statusTxt}</span>
+          <span style={{ fontSize: 11, fontWeight: 800, color: 'var(--ink)' }}>{quantity} left</span>
+        </div>
       </div>
     </>
   )
@@ -67,7 +102,7 @@ function StockBar({ quantity, reorderLevel }: { quantity: number; reorderLevel: 
 // ─────────────────────────────────────────────────────────────────────────────
 
 const BLANK = { sku:'', name:'', description:'', category_id:'', supplier_id:'', unit:'pcs', quantity:0, reorder_level:10, cost_price:0, selling_price:0 }
-const BLANK_TX = { type: 'stock_in' as 'stock_in'|'stock_out'|'adjustment', qty:1, ref:'', notes:'', voucher:'', date_of_sale:'', customer_name:'', customer_phone:'' }
+const BLANK_TX = { type: 'stock_in' as 'stock_in'|'stock_out'|'adjustment', qty:1, notes:'', voucher:'', date_of_sale:'', customer_name:'', customer_phone:'' }
 
 export default function Inventory() {
   const { user } = useAuth()
@@ -126,6 +161,25 @@ export default function Inventory() {
   useEffect(() => { loadMeta() }, [loadMeta])
   useEffect(() => { loadRows() }, [loadRows])
 
+  // Backfill voucher numbers for existing products that don't have one
+  useEffect(() => {
+    async function backfillVouchers() {
+      if (!user) return
+      const { data } = await sb.from('products')
+        .select('id')
+        .eq('business_id', user.business_id)
+        .eq('is_active', true)
+        .is('voucher_number', null)
+      if (!data || data.length === 0) return
+      for (const p of data) {
+        const vNum = genVoucherNumber()
+        await sb.from('products').update({ voucher_number: vNum }).eq('id', p.id)
+      }
+      if (data.length > 0) loadRows()
+    }
+    backfillVouchers()
+  }, [user])
+
   function openAdd()  { setForm({ ...BLANK }); setErr(''); setOk(''); setModal('add') }
   function openEdit(p: Product) {
     setSelected(p)
@@ -144,10 +198,11 @@ export default function Inventory() {
     try {
       const payload = { ...form, business_id: user!.business_id, is_active:true, category_id: form.category_id||null, supplier_id: form.supplier_id||null, updated_at: new Date().toISOString() }
       if (modal === 'add') {
-        const { data: created, error } = await sb.from('products').insert(payload).select('id').single()
+        const voucherNum = genVoucherNumber()
+        const { data: created, error } = await sb.from('products').insert({ ...payload, voucher_number: voucherNum }).select('id').single()
         if (error) { setErr(error.message.includes('unique') ? 'SKU already exists for this business.' : error.message); return }
         if (form.quantity > 0 && created) {
-          await sb.from('transactions').insert({ product_id: created.id, business_id: user!.business_id, transaction_type: 'stock_in', quantity: form.quantity, reference_number: 'INITIAL', notes: 'Initial stock entry', performed_by: user!.id })
+          await sb.from('transactions').insert({ product_id: created.id, business_id: user!.business_id, transaction_type: 'stock_in', quantity: form.quantity, reference_number: null, notes: 'Initial stock entry', performed_by: user!.id })
         }
         setOk('Product added successfully!')
       } else {
@@ -172,9 +227,9 @@ export default function Inventory() {
       const { error } = await sb.from('transactions').insert({
         product_id: p.id, business_id: user!.business_id,
         transaction_type: tx.type, quantity: qty,
-        reference_number: tx.ref||null, notes: tx.notes||null,
+        reference_number: isOut ? (tx.voucher||null) : null, notes: tx.notes||null,
         performed_by: user!.id,
-        voucher_number: isOut ? (tx.voucher||null) : null,
+        voucher_number: null,
         date_of_sale: isOut ? (tx.date_of_sale||null) : null,
         customer_name: isOut ? (tx.customer_name||null) : null,
         customer_phone: isOut ? (tx.customer_phone||null) : null,
@@ -243,7 +298,7 @@ export default function Inventory() {
           <table className="table">
             <thead>
               <tr>
-                <th>Product</th><th>SKU</th><th>Category</th><th>Supplier</th>
+                <th>Product</th><th>SKU</th><th>Voucher</th><th>Category</th><th>Supplier</th>
                 <th>Stock</th><th style={{ textAlign: 'center' }}>Status</th><th>Cost</th><th>Selling Price</th>
                 <th style={{ textAlign: 'right' }}>Actions</th>
               </tr>
@@ -252,7 +307,7 @@ export default function Inventory() {
               {loading
                 ? <SkeletonRows cols={9} rows={8} />
                 : rows.length === 0
-                ? <tr><td colSpan={9}>
+                ? <tr><td colSpan={10}>
                     <Empty icon={<Package size={42} />} text="No products found" sub="Try adjusting your filters or add a new product." />
                   </td></tr>
                 : rows.map(p => {
@@ -263,6 +318,7 @@ export default function Inventory() {
                         {p.description && <p style={{ fontSize: 11.5, color: 'var(--c-text3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 200 }}>{p.description}</p>}
                       </td>
                       <td><code className="mono badge badge-navy" style={{ fontSize: 11.5, borderRadius: 6, padding: '3px 8px' }}>{p.sku}</code></td>
+                      <td><code className="mono" style={{ fontSize: 11, color: 'var(--c-text3)', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 6, padding: '2px 7px' }}>{p.voucher_number ?? <span style={{ color: 'var(--c-text4)' }}>—</span>}</code></td>
                       <td style={{ fontSize: 13, color: 'var(--c-text2)' }}>{(p as any).categories?.name ?? <span style={{ color: 'var(--c-text4)' }}>—</span>}</td>
                       <td style={{ fontSize: 13, color: 'var(--c-text2)' }}>{(p as any).suppliers?.name ?? <span style={{ color: 'var(--c-text4)' }}>—</span>}</td>
                       <td>
@@ -430,9 +486,6 @@ export default function Inventory() {
             <Field label={tx.type === 'adjustment' ? 'Set quantity to' : 'Quantity'} required>
               <input className="input" type="number" min={1} required value={tx.qty} onChange={e => setTx(p => ({ ...p, qty: Number(e.target.value) }))} />
             </Field>
-            <Field label="Reference Number" hint="e.g. PO-001, DR-123, SO-456">
-              <input className="input input-mono" placeholder="Optional reference…" value={tx.ref} onChange={e => setTx(p => ({ ...p, ref: e.target.value }))} />
-            </Field>
             <Field label="Notes">
               <textarea className="input" rows={2} placeholder="Optional notes…" value={tx.notes} onChange={e => setTx(p => ({ ...p, notes: e.target.value }))} />
             </Field>
@@ -442,8 +495,8 @@ export default function Inventory() {
                   <p style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--c-text3)', letterSpacing: '.07em', textTransform: 'uppercase', marginBottom: 12 }}>Sale Details</p>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 13 }}>
                     <div className="grid-2">
-                      <Field label="Voucher Number">
-                        <input className="input input-mono" placeholder="e.g. SI-001" value={tx.voucher} onChange={e => setTx(p => ({ ...p, voucher: e.target.value }))} />
+                      <Field label="Reference Number">
+                        <input className="input input-mono" placeholder="REF-YYYYMMDD-0001" value={tx.voucher} onChange={e => setTx(p => ({ ...p, voucher: e.target.value }))} />
                       </Field>
                       <Field label="Date of Sale">
                         <input className="input" type="date" value={tx.date_of_sale} onChange={e => setTx(p => ({ ...p, date_of_sale: e.target.value }))} />

@@ -10,6 +10,7 @@ import Inventory  from '@/pages/Inventory'
 import Transactions from '@/pages/Transactions'
 import Suppliers  from '@/pages/Suppliers'
 import Customers  from '@/pages/Customers'
+import POS        from '@/pages/POS'
 import Profile    from '@/pages/Profile'
 import Staff      from '@/pages/Staff'
 import Reports      from '@/pages/Reports'
@@ -46,6 +47,7 @@ export default function App() {
           <Route index element={<Dashboard />} />
           <Route path="inventory"    element={<Inventory />} />
           <Route path="transactions" element={<Transactions />} />
+          <Route path="pos"          element={<POS />} />
           <Route path="suppliers"    element={<Suppliers />} />
           <Route path="customers"    element={<Customers />} />
           <Route path="profile"      element={<Profile />} />

@@ -1,7 +1,7 @@
 import { NavLink, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard, Package, ArrowLeftRight, Truck,
-  Users, BarChart3, Tag, LogOut, ChevronRight, Sun, Moon, X, UserCheck, TrendingUp,
+  Users, BarChart3, Tag, LogOut, ChevronRight, Sun, Moon, X, UserCheck, TrendingUp, ShoppingCart,
 } from 'lucide-react'
 import { useAuth } from '@/store/auth'
 import { useTheme } from '@/store/theme'
@@ -13,6 +13,7 @@ const MAIN = [
   { to: '/',             label: 'Dashboard',    icon: LayoutDashboard, end: true },
   { to: '/inventory',    label: 'Inventory',    icon: Package },
   { to: '/transactions', label: 'Transactions', icon: ArrowLeftRight },
+  { to: '/pos',          label: 'POS',          icon: ShoppingCart },
   { to: '/suppliers',    label: 'Suppliers',    icon: Truck },
   { to: '/customers',    label: 'Customers',    icon: UserCheck },
 ]

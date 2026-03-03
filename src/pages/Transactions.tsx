@@ -38,7 +38,7 @@ export function Transactions() {
   useEffect(() => { load() }, [load])
 
   const showSaleCols = !type || type === 'stock_out'
-  const colSpan = showSaleCols ? 10 : 7
+  const colSpan = showSaleCols ? 9 : 6
 
   return (
     <div className="anim-fade-up">
@@ -71,7 +71,6 @@ export function Transactions() {
                 <th>Product</th>
                 <th>Type</th>
                 <th>Qty</th>
-                <th>Reference</th>
                 {showSaleCols && <th style={{ whiteSpace: 'nowrap' }}><span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><Receipt size={12} />Voucher</span></th>}
                 {showSaleCols && <th style={{ whiteSpace: 'nowrap' }}><span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><Calendar size={12} />Date of Sale</span></th>}
                 {showSaleCols && <th style={{ whiteSpace: 'nowrap' }}><span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><User size={12} />Customer</span></th>}
@@ -99,12 +98,10 @@ export function Transactions() {
                       <td style={{ fontWeight: 700, color: txColor(tx.transaction_type), fontSize: 14 }}>
                         {txSign(tx.transaction_type)}{tx.quantity} {tx.products?.unit}
                       </td>
-                      <td>{tx.reference_number ? <span className="mono badge badge-navy" style={{ fontSize: 11.5 }}>{tx.reference_number}</span> : <span style={{ color: 'var(--c-text4)' }}>—</span>}</td>
-
                       {showSaleCols && (
                         <td>
-                          {isOut && tx.voucher_number
-                            ? <span className="mono badge badge-navy" style={{ fontSize: 11.5 }}>{tx.voucher_number}</span>
+                          {isOut && (tx.reference_number || tx.voucher_number)
+                            ? <span className="mono badge badge-navy" style={{ fontSize: 11.5 }}>{tx.reference_number || tx.voucher_number}</span>
                             : isOut ? <span style={{ color: 'var(--c-text4)' }}>—</span> : null}
                         </td>
                       )}
