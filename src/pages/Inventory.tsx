@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { Plus, Search, Edit2, Trash2, ArrowLeftRight, X, ChevronLeft, ChevronRight, Package, Filter } from 'lucide-react'
 import { sb } from '@/lib/supabase'
 import { useAuth } from '@/store/auth'
@@ -91,6 +91,7 @@ export default function Inventory() {
   const [tx, setTx]             = useState({ ...BLANK_TX })
   const [saving, setSaving]     = useState(false)
   const [skuLoading, setSkuLoading] = useState(false)
+  const [skuIsExisting, setSkuIsExisting] = useState(false)
   const [err, setErr]           = useState('')
   const [ok, setOk]             = useState('')
   const PER = 20
@@ -153,7 +154,7 @@ export default function Inventory() {
         .eq('is_active', true)
         .limit(1)
         .maybeSingle()
-      if (existing?.sku) return existing.sku
+      if (existing?.sku) { setSkuIsExisting(true); return existing.sku }
 
       // 2. No match — derive prefix and find the next available counter
       const prefix = genSkuPrefix(name)
@@ -175,7 +176,7 @@ export default function Inventory() {
     }
   }
 
-  function openAdd()  { setForm({ ...BLANK }); setErr(''); setOk(''); setModal('add') }
+  function openAdd()  { setForm({ ...BLANK }); setErr(''); setOk(''); setSkuIsExisting(false); setModal('add') }
   function openEdit(p: Product) {
     setSelected(p)
     setForm({ sku:p.sku, name:p.name, description:p.description??'', category_id:p.category_id??'', supplier_id:p.supplier_id??'', unit:p.unit, quantity:p.quantity, reorder_level:p.reorder_level, cost_price:p.cost_price, selling_price:p.selling_price })
@@ -187,36 +188,70 @@ export default function Inventory() {
     setTx({ ...BLANK_TX, voucher_number: genVoucherNumber(), reference_number: '' })
     setErr(''); setTxModal(true)
   }
-  function closeAll() { setModal(null); setTxModal(false); setDelItem(null); setSelected(null); setErr(''); setOk('') }
+  function closeAll() { setModal(null); setTxModal(false); setDelItem(null); setSelected(null); setErr(''); setOk(''); setSkuIsExisting(false) }
+
+  // Debounce ref — prevents firing a DB lookup on every single keystroke
+  const skuDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
   function f(k: string, v: any) {
     const nums = ['quantity','reorder_level','cost_price','selling_price']
     setForm(p => ({ ...p, [k]: nums.includes(k) ? (parseFloat(v)||0) : v }))
     // Auto-resolve SKU when the product name changes (add modal only)
     if (k === 'name' && modal === 'add') {
-      resolveSkuForName(v).then(sku => { if (sku) setForm(prev => ({ ...prev, sku })) })
+      if (skuDebounceRef.current) clearTimeout(skuDebounceRef.current)
+      if (!v.trim()) { setForm(prev => ({ ...prev, sku: '' })); setSkuIsExisting(false); return }
+      setSkuIsExisting(false)
+      skuDebounceRef.current = setTimeout(() => {
+        resolveSkuForName(v).then(sku => { if (sku) setForm(prev => ({ ...prev, sku })) })
+      }, 500)
     }
   }
 
   async function saveProd(e: React.FormEvent) {
     e.preventDefault(); setSaving(true); setErr(''); setOk('')
     try {
-      // Ensure SKU is resolved before saving
-      let sku = form.sku
-      if (modal === 'add' && !sku) {
-        sku = await resolveSkuForName(form.name)
+      if (modal === 'add') {
+        if (!form.name.trim()) { setErr('Product name is required.'); return }
+
+        // Check if a product with this exact name already exists — if so, just add stock to it
+        const { data: existing } = await sb.from('products')
+          .select('id, sku, quantity, unit')
+          .eq('business_id', user!.business_id)
+          .ilike('name', form.name.trim())
+          .eq('is_active', true)
+          .limit(1)
+          .maybeSingle()
+
+        if (existing) {
+          // ── Product already exists → add stock to it (Stock In transaction) ──
+          if (form.quantity > 0) {
+            const newQty = existing.quantity + form.quantity
+            const voucherNum = genVoucherNumber()
+            await sb.from('products').update({ quantity: newQty, updated_at: new Date().toISOString() }).eq('id', existing.id)
+            await sb.from('transactions').insert({ product_id: existing.id, business_id: user!.business_id, transaction_type: 'stock_in', quantity: form.quantity, voucher_number: voucherNum, reference_number: null, notes: 'Stock added via Add Product (same name matched)', performed_by: user!.id })
+            toast.success('Stock updated!', `${form.quantity} ${existing.unit} added to existing "${form.name}" (SKU: ${existing.sku})`)
+          } else {
+            toast.success('No quantity added.', `"${form.name}" already exists — enter a quantity to add stock.`)
+          }
+          closeAll(); loadRows(); return
+        }
+
+        // ── New product → generate SKU and insert ──
+        const sku = await resolveSkuForName(form.name)
         if (!sku) { setErr('Could not generate SKU. Please enter a product name.'); return }
         setForm(p => ({ ...p, sku }))
-      }
-      const payload = { ...form, sku, business_id: user!.business_id, is_active:true, category_id: form.category_id||null, supplier_id: form.supplier_id||null, updated_at: new Date().toISOString() }
-      if (modal === 'add') {
+        const payload = { ...form, sku, business_id: user!.business_id, is_active:true, category_id: form.category_id||null, supplier_id: form.supplier_id||null, updated_at: new Date().toISOString() }
         const { data: created, error } = await sb.from('products').insert({ ...payload }).select('id').single()
-        if (error) { setErr(error.message.includes('unique') ? 'A product with this SKU already exists for this business.' : error.message); return }
+        if (error) { setErr(error.message); return }
         if (form.quantity > 0 && created) {
           const voucherNum = genVoucherNumber()
           await sb.from('transactions').insert({ product_id: created.id, business_id: user!.business_id, transaction_type: 'stock_in', quantity: form.quantity, voucher_number: voucherNum, reference_number: null, notes: 'Initial stock entry', performed_by: user!.id })
         }
         toast.success('Product added!', form.name + ' was added to inventory')
+
       } else {
+        // ── Edit mode ──
+        const payload = { ...form, business_id: user!.business_id, is_active:true, category_id: form.category_id||null, supplier_id: form.supplier_id||null, updated_at: new Date().toISOString() }
         const { error } = await sb.from('products').update(payload).eq('id', selected!.id)
         if (error) { setErr(error.message); return }
         toast.success('Product updated!', form.name + ' was saved successfully')
@@ -416,6 +451,13 @@ export default function Inventory() {
             <Field label="Product Name" required>
               <input className="input" required value={form.name} onChange={e => f('name', e.target.value)} placeholder="Full product name" />
             </Field>
+            {/* Show a notice when the name matches an existing product */}
+            {modal === 'add' && skuIsExisting && !skuLoading && (
+              <div style={{ background: 'var(--c-gold-dim)', border: '1px solid var(--gold)', borderRadius: 'var(--radius)', padding: '10px 14px', fontSize: 13, color: 'var(--ink)', display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+                <span style={{ fontSize: 16 }}>⚠️</span>
+                <span>A product with this name already exists (<strong>{form.sku}</strong>). Submitting will <strong>add the quantity</strong> to the existing product instead of creating a new one.</span>
+              </div>
+            )}
             <div className="grid-2">
               <Field label="SKU" hint={modal === 'add' ? (skuLoading ? 'Looking up…' : 'Auto-generated from name') : undefined}>
                 <div style={{ position: 'relative' }}>
