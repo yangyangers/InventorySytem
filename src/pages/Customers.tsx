@@ -237,128 +237,128 @@ export default function Customers() {
               </p>
             </div>
           ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: '240px 1fr', gap: 14, minHeight: 400 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '260px 1fr', gap: 16, minHeight: 420 }}>
 
               {/* Left: transaction list */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {/* Summary */}
-                <div style={{ padding: '10px 13px', borderRadius: 12, background: 'var(--c-teal-dim)', border: '1px solid rgba(91,148,144,.35)', marginBottom: 4 }}>
-                  <p style={{ fontSize: 11, fontWeight: 800, color: 'var(--teal)', letterSpacing: '.07em', textTransform: 'uppercase' }}>Total spent</p>
-                  <p style={{ fontSize: 20, fontWeight: 900, color: 'var(--ink)', marginTop: 2, letterSpacing: '-.01em' }}>{money(grandTotal)}</p>
-                  <p style={{ fontSize: 12, color: 'var(--c-text3)', marginTop: 1 }}>{groups.length} transaction{groups.length !== 1 ? 's' : ''}</p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {/* Count pill */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 2px', marginBottom: 4 }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--c-text3)' }}>
+                    {groups.length} transaction{groups.length !== 1 ? 's' : ''}
+                  </span>
+                  <span style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--teal)' }}>{money(grandTotal)}</span>
                 </div>
 
                 {/* List */}
-                <div style={{ overflowY: 'auto', maxHeight: 360, display: 'flex', flexDirection: 'column', gap: 5, paddingRight: 1 }}>
+                <div style={{ overflowY: 'auto', maxHeight: 400, display: 'flex', flexDirection: 'column', gap: 6, paddingRight: 2 }}>
                   {groups.map(g => {
                     const isActive = activeGroup?.refNumber === g.refNumber
                     return (
                       <button key={g.refNumber} type="button" onClick={() => setActiveGroup(g)}
                         style={{
-                          textAlign: 'left', padding: '10px 12px', borderRadius: 11,
+                          textAlign: 'left', padding: '11px 13px', borderRadius: 12,
                           border: `1.5px solid ${isActive ? 'var(--teal)' : 'var(--border)'}`,
                           background: isActive ? 'var(--c-teal-dim)' : 'var(--c-white)',
-                          cursor: 'pointer', transition: 'all .14s',
+                          cursor: 'pointer', transition: 'all .15s', outline: 'none',
+                          boxShadow: isActive ? '0 2px 10px rgba(91,148,144,.15)' : 'none',
                         }}>
-                        {/* Date row */}
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 5 }}>
-                          <Calendar size={11} style={{ color: isActive ? 'var(--teal)' : 'var(--c-text4)', flexShrink: 0 }} />
-                          <span style={{ fontSize: 12.5, fontWeight: 800, color: 'var(--ink)', flex: 1 }}>{fmtDate(g.date)}</span>
+                        {/* Date + item count */}
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                            <Calendar size={11} style={{ color: isActive ? 'var(--teal)' : 'var(--c-text4)', flexShrink: 0 }} />
+                            <span style={{ fontSize: 12.5, fontWeight: 800, color: 'var(--ink)' }}>{fmtDate(g.date)}</span>
+                          </div>
                           <span style={{
                             fontSize: 10.5, fontWeight: 700,
                             background: isActive ? 'rgba(91,148,144,.2)' : 'var(--bg)',
                             color: isActive ? 'var(--teal)' : 'var(--c-text3)',
-                            borderRadius: 5, padding: '2px 6px',
+                            borderRadius: 6, padding: '2px 7px',
                           }}>
                             {g.items.length} item{g.items.length !== 1 ? 's' : ''}
                           </span>
                         </div>
-                        {/* Ref */}
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 5 }}>
+                        {/* Ref number */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 7 }}>
                           <Hash size={10} style={{ color: 'var(--c-text4)', flexShrink: 0 }} />
-                          <span style={{ fontFamily: 'var(--mono)', fontSize: 10.5, color: 'var(--c-text3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{g.refNumber}</span>
+                          <span style={{ fontFamily: 'var(--mono)', fontSize: 10.5, color: 'var(--c-text4)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{g.refNumber}</span>
                         </div>
                         {/* Amount */}
-                        <p style={{ fontWeight: 900, fontSize: 13, color: isActive ? 'var(--teal)' : 'var(--ink)' }}>{money(g.total)}</p>
+                        <p style={{ fontWeight: 900, fontSize: 14, color: isActive ? 'var(--teal)' : 'var(--ink)', letterSpacing: '-.01em' }}>{money(g.total)}</p>
                       </button>
                     )
                   })}
                 </div>
               </div>
 
-              {/* Right: detail */}
+              {/* Right: detail panel */}
               {activeGroup ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 0, borderRadius: 14, border: '1px solid var(--border)', overflow: 'hidden' }}>
-                  {/* Detail header */}
-                  <div style={{ padding: '13px 16px', background: 'var(--bg)', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
-                    <div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-                        <Receipt size={14} style={{ color: 'var(--teal)' }} />
-                        <span style={{ fontWeight: 800, fontSize: 13.5, color: 'var(--ink)' }}>
-                          {fmtDateTime(activeGroup.checkedOutAt)}
-                        </span>
+                <div style={{ display: 'flex', flexDirection: 'column', borderRadius: 14, border: '1px solid var(--border)', overflow: 'hidden', background: 'var(--c-white)' }}>
+                  {/* Receipt header */}
+                  <div style={{ padding: '14px 18px', background: 'var(--bg)', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <div style={{ width: 36, height: 36, borderRadius: 10, background: 'var(--c-teal-dim)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <Receipt size={16} style={{ color: 'var(--teal)' }} />
                       </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 4 }}>
-                        <Hash size={11} style={{ color: 'var(--c-text4)' }} />
-                        <code style={{ fontFamily: 'var(--mono)', fontSize: 11.5, color: 'var(--c-text3)' }}>{activeGroup.refNumber}</code>
+                      <div>
+                        <p style={{ fontWeight: 800, fontSize: 13.5, color: 'var(--ink)' }}>{fmtDateTime(activeGroup.checkedOutAt)}</p>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 2 }}>
+                          <Hash size={10} style={{ color: 'var(--c-text4)' }} />
+                          <code style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--c-text4)' }}>{activeGroup.refNumber}</code>
+                        </div>
                       </div>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--c-text3)', textTransform: 'uppercase', letterSpacing: '.06em' }}>Order Total</p>
+                      <p style={{ fontSize: 20, fontWeight: 900, color: 'var(--teal)', letterSpacing: '-.02em' }}>{money(activeGroup.total)}</p>
                     </div>
                   </div>
 
-                  {/* Items */}
+                  {/* Items list */}
                   <div style={{ overflowY: 'auto', flex: 1 }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                      <thead>
-                        <tr style={{ background: 'var(--bg)', borderBottom: '1px solid var(--border)' }}>
-                          <th style={{ padding: '9px 14px', textAlign: 'left', fontSize: 11, fontWeight: 800, color: 'var(--c-text3)', letterSpacing: '.06em', textTransform: 'uppercase' }}>Product</th>
-                          <th style={{ padding: '9px 14px', textAlign: 'right', fontSize: 11, fontWeight: 800, color: 'var(--c-text3)', letterSpacing: '.06em', textTransform: 'uppercase' }}>Qty</th>
-                          <th style={{ padding: '9px 14px', textAlign: 'right', fontSize: 11, fontWeight: 800, color: 'var(--c-text3)', letterSpacing: '.06em', textTransform: 'uppercase' }}>Price</th>
-                          <th style={{ padding: '9px 14px', textAlign: 'right', fontSize: 11, fontWeight: 800, color: 'var(--c-text3)', letterSpacing: '.06em', textTransform: 'uppercase' }}>Total</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {activeGroup.items.map((it, idx) => {
-                          const price = (it.products as any)?.selling_price ?? 0
-                          const lineTotal = price * it.quantity
-                          return (
-                            <tr key={it.id || idx} style={{ borderBottom: '1px solid var(--border)' }}>
-                              <td style={{ padding: '11px 14px' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
-                                  <div style={{ width: 30, height: 30, borderRadius: 8, background: 'var(--bg)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                    <Package size={13} style={{ color: 'var(--c-text4)' }} />
-                                  </div>
-                                  <div>
-                                    <p style={{ fontWeight: 700, fontSize: 13, color: 'var(--ink)' }}>{it.products?.name ?? '—'}</p>
-                                    {it.products?.sku && <p style={{ fontFamily: 'var(--mono)', fontSize: 10.5, color: 'var(--c-text4)', marginTop: 1 }}>{it.products.sku}</p>}
-                                  </div>
-                                </div>
-                              </td>
-                              <td style={{ padding: '11px 14px', textAlign: 'right', fontWeight: 700, fontSize: 13.5, color: 'var(--ink)', whiteSpace: 'nowrap' }}>
-                                {it.quantity} <span style={{ fontSize: 11, fontWeight: 500, color: 'var(--c-text3)' }}>{it.products?.unit ?? ''}</span>
-                              </td>
-                              <td style={{ padding: '11px 14px', textAlign: 'right', fontSize: 12.5, color: 'var(--c-text2)' }}>
-                                {price ? money(price) : '—'}
-                              </td>
-                              <td style={{ padding: '11px 14px', textAlign: 'right', fontWeight: 900, fontSize: 13.5, color: 'var(--ink)' }}>
-                                {lineTotal ? money(lineTotal) : '—'}
-                              </td>
-                            </tr>
-                          )
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-
-                  {/* Total footer */}
-                  <div style={{ padding: '12px 16px', background: 'var(--bg)', borderTop: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <span style={{ fontSize: 13, fontWeight: 800, color: 'var(--c-text2)' }}>Total</span>
-                    <span style={{ fontSize: 16, fontWeight: 900, color: 'var(--ink)' }}>{money(activeGroup.total)}</span>
+                    {activeGroup.items.map((it, idx) => {
+                      const price = (it.products as any)?.selling_price ?? 0
+                      const lineTotal = price * it.quantity
+                      const isLast = idx === activeGroup.items.length - 1
+                      return (
+                        <div key={it.id || idx} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 18px', borderBottom: isLast ? 'none' : '1px solid var(--border)' }}>
+                          {/* Icon */}
+                          <div style={{ width: 38, height: 38, borderRadius: 10, background: 'var(--bg)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                            <Package size={15} style={{ color: 'var(--c-text4)' }} />
+                          </div>
+                          {/* Name + SKU */}
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <p style={{ fontWeight: 700, fontSize: 13.5, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{it.products?.name ?? '—'}</p>
+                            {it.products?.sku && <p style={{ fontFamily: 'var(--mono)', fontSize: 10.5, color: 'var(--c-text4)', marginTop: 1 }}>{it.products.sku}</p>}
+                          </div>
+                          {/* Qty */}
+                          <div style={{ textAlign: 'center', minWidth: 48 }}>
+                            <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--c-text4)', textTransform: 'uppercase', letterSpacing: '.05em' }}>Qty</p>
+                            <p style={{ fontWeight: 800, fontSize: 14, color: 'var(--ink)' }}>
+                              {it.quantity}<span style={{ fontSize: 11, fontWeight: 500, color: 'var(--c-text3)', marginLeft: 2 }}>{it.products?.unit ?? ''}</span>
+                            </p>
+                          </div>
+                          {/* Unit price */}
+                          <div style={{ textAlign: 'right', minWidth: 72 }}>
+                            <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--c-text4)', textTransform: 'uppercase', letterSpacing: '.05em' }}>Unit</p>
+                            <p style={{ fontSize: 12.5, color: 'var(--c-text2)', fontWeight: 600 }}>{price ? money(price) : '—'}</p>
+                          </div>
+                          {/* Line total */}
+                          <div style={{ textAlign: 'right', minWidth: 80 }}>
+                            <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--c-text4)', textTransform: 'uppercase', letterSpacing: '.05em' }}>Total</p>
+                            <p style={{ fontWeight: 900, fontSize: 14, color: 'var(--ink)' }}>{lineTotal ? money(lineTotal) : '—'}</p>
+                          </div>
+                        </div>
+                      )
+                    })}
                   </div>
                 </div>
               ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, border: '1.5px dashed var(--border)', borderRadius: 14, color: 'var(--c-text4)', minHeight: 200 }}>
-                  <Receipt size={28} />
-                  <p style={{ fontSize: 13, fontWeight: 600 }}>Select a transaction</p>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10, border: '1.5px dashed var(--border)', borderRadius: 14, color: 'var(--c-text4)' }}>
+                  <div style={{ width: 52, height: 52, borderRadius: 16, background: 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Receipt size={22} style={{ opacity: .5 }} />
+                  </div>
+                  <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--c-text3)' }}>Select a transaction</p>
+                  <p style={{ fontSize: 12, color: 'var(--c-text4)' }}>Click any item on the left to view details</p>
                 </div>
               )}
             </div>

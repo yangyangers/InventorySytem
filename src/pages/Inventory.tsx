@@ -32,8 +32,7 @@ function StockBar({ quantity, reorderLevel }: { quantity: number; reorderLevel: 
   return (
     <>
       <style>{stockBarStyles}</style>
-      <div title={label} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        {/* Pill track */}
+      <div title={`${label} · ${quantity} left`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
         <div
           style={{
             position: 'relative',
@@ -59,42 +58,6 @@ function StockBar({ quantity, reorderLevel }: { quantity: number; reorderLevel: 
               transition: 'height 0.5s ease',
             }}
           />
-
-          {/* Current quantity badge (moves with the fill) */}
-          {!isOut && (
-            <div
-              style={{
-                position: 'absolute',
-                left: 18,
-                bottom: `calc(${fillPct}% - 8px)`,
-                transform: 'translateY(50%)',
-                fontSize: 10,
-                fontWeight: 800,
-                padding: '2px 6px',
-                borderRadius: 999,
-                background: 'var(--c-white)',
-                border: '1px solid var(--border)',
-                color: 'var(--ink)',
-                boxShadow: '0 6px 16px rgba(0,0,0,0.06)',
-                whiteSpace: 'nowrap',
-              }}
-            >
-              {quantity}
-            </div>
-          )}
-        </div>
-
-        {/* Numeric scale */}
-        <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', height: 52, paddingRight: 2 }}>
-          <span style={{ fontSize: 10, color: 'var(--c-text4)', fontFamily: 'var(--mono)' }}>{maxDisplay}</span>
-          <span style={{ fontSize: 10, color: 'var(--c-text4)', fontFamily: 'var(--mono)' }}>{reorderLevel}</span>
-          <span style={{ fontSize: 10, color: 'var(--c-text4)', fontFamily: 'var(--mono)' }}>0</span>
-        </div>
-
-        {/* Status */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 2, minWidth: 64 }}>
-          <span style={{ fontSize: 10, fontWeight: 700, color: colorDark, letterSpacing: '0.01em' }}>{statusTxt}</span>
-          <span style={{ fontSize: 11, fontWeight: 800, color: 'var(--ink)' }}>{quantity} left</span>
         </div>
       </div>
     </>
@@ -117,6 +80,7 @@ export default function Inventory() {
   const [search, setSearch]   = useState('')
   const [catF, setCatF]       = useState('')
   const [stockF, setStockF]   = useState('')
+  const [sortBy, setSortBy]   = useState('name_asc')
   const [loading, setLoading] = useState(true)
 
   const [modal, setModal]       = useState<'add'|'edit'|null>(null)
@@ -146,10 +110,21 @@ export default function Inventory() {
   const loadRows = useCallback(async () => {
     if (!user) return
     setLoading(true)
+
+    // Determine order column and direction from sortBy
+    let orderCol = 'name'
+    let orderAsc = true
+    if (sortBy === 'name_asc')    { orderCol = 'name';       orderAsc = true  }
+    if (sortBy === 'name_desc')   { orderCol = 'name';       orderAsc = false }
+    if (sortBy === 'sku_asc')     { orderCol = 'sku';        orderAsc = true  }
+    if (sortBy === 'sku_desc')    { orderCol = 'sku';        orderAsc = false }
+    if (sortBy === 'latest')      { orderCol = 'created_at'; orderAsc = false }
+    if (sortBy === 'oldest')      { orderCol = 'created_at'; orderAsc = true  }
+
     let q = sb.from('products')
       .select('*, categories(name), suppliers(name)', { count: 'exact' })
       .eq('business_id', user.business_id).eq('is_active', true)
-      .order('name').range((page-1)*PER, page*PER-1)
+      .order(orderCol, { ascending: orderAsc }).range((page-1)*PER, page*PER-1)
     if (search) q = q.or(`name.ilike.%${search}%,sku.ilike.%${search}%`)
     if (catF)   q = q.eq('category_id', catF)
     if (stockF === 'low') q = q.gt('quantity', 0).lte('quantity', 20)
@@ -159,7 +134,7 @@ export default function Inventory() {
     setRows(data as Product[] ?? [])
     setTotal(count ?? 0)
     setLoading(false)
-  }, [user, page, search, catF, stockF])
+  }, [user, page, search, catF, stockF, sortBy])
 
   useEffect(() => { loadMeta() }, [loadMeta])
   useEffect(() => { loadRows() }, [loadRows])
@@ -323,8 +298,16 @@ export default function Inventory() {
           <option value="low">Low Stock</option>
           <option value="out">Out of Stock</option>
         </select>
+        <select className="input" style={{ width: 175 }} value={sortBy} onChange={e => { setSortBy(e.target.value); setPage(1) }}>
+          <option value="name_asc">Name: A → Z</option>
+          <option value="name_desc">Name: Z → A</option>
+          <option value="sku_asc">SKU: A → Z</option>
+          <option value="sku_desc">SKU: Z → A</option>
+          <option value="latest">Latest Added</option>
+          <option value="oldest">Oldest Added</option>
+        </select>
         {(search || catF || stockF) && (
-          <button className="btn btn-ghost btn-sm" onClick={() => { setSearch(''); setCatF(''); setStockF(''); setPage(1) }}>
+          <button className="btn btn-ghost btn-sm" onClick={() => { setSearch(''); setCatF(''); setStockF(''); setSortBy('name_asc'); setPage(1) }}>
             <X size={13} /> Clear
           </button>
         )}
@@ -337,7 +320,7 @@ export default function Inventory() {
             <thead>
               <tr>
                 <th>Product</th><th>SKU</th><th>Category</th><th>Supplier</th>
-                <th>Stock</th><th style={{ textAlign: 'center' }}>Status</th><th>Cost</th><th>Selling Price</th>
+                <th style={{ textAlign: 'center' }}>Stock</th><th style={{ textAlign: 'center' }}>Status</th><th>Cost</th><th>Selling Price</th>
                 <th style={{ textAlign: 'right' }}>Actions</th>
               </tr>
             </thead>
@@ -358,11 +341,15 @@ export default function Inventory() {
                       <td><code className="mono badge badge-navy" style={{ fontSize: 11.5, borderRadius: 6, padding: '3px 8px' }}>{p.sku}</code></td>
                       <td style={{ fontSize: 13, color: 'var(--c-text2)' }}>{(p as any).categories?.name ?? <span style={{ color: 'var(--c-text4)' }}>—</span>}</td>
                       <td style={{ fontSize: 13, color: 'var(--c-text2)' }}>{(p as any).suppliers?.name ?? <span style={{ color: 'var(--c-text4)' }}>—</span>}</td>
-                      <td>
+                      <td style={{ textAlign: 'center' }}>
                         <span style={{ fontWeight: 800, color: 'var(--ink)', fontSize: 15, fontFamily: 'var(--font-head)' }}>{p.quantity}</span>
                         <span style={{ color: 'var(--c-text3)', fontSize: 12, marginLeft: 4 }}>{p.unit}</span>
                       </td>
-                      <td style={{ textAlign: 'center' }}><StockBar quantity={p.quantity} reorderLevel={p.reorder_level} /></td>
+                      <td style={{ textAlign: 'center', verticalAlign: 'middle' }}>
+                        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', width: '100%' }}>
+                          <StockBar quantity={p.quantity} reorderLevel={p.reorder_level} />
+                        </div>
+                      </td>
                       <td style={{ fontSize: 13, color: 'var(--c-text2)' }}>{php(p.cost_price)}</td>
                       <td style={{ fontSize: 13.5, fontWeight: 700, color: 'var(--ink)' }}>{php(p.selling_price)}</td>
                       <td>
