@@ -9,7 +9,8 @@ const BLANK = { name: '', phone: '', email: '', address: '' }
 
 interface PurchaseGroup {
   refNumber: string
-  date: string
+  date: string         // date_of_sale for the list date label
+  checkedOutAt: string // created_at — accurate checkout timestamp
   items: Transaction[]
   total: number
 }
@@ -102,8 +103,9 @@ export default function Customers() {
       .map(([refNumber, txs]) => {
         const sorted = [...txs].sort((a, b) => b.created_at.localeCompare(a.created_at))
         const dateRaw = sorted[0].date_of_sale || sorted[0].created_at
+        const checkedOutAt = sorted[0].created_at
         const total = sorted.reduce((s, t) => s + ((t.products as any)?.selling_price ?? 0) * t.quantity, 0)
-        return { refNumber, date: dateRaw, items: sorted, total }
+        return { refNumber, date: dateRaw, checkedOutAt, items: sorted, total }
       })
       .sort((a, b) => b.date.localeCompare(a.date))
   }
@@ -291,7 +293,7 @@ export default function Customers() {
                       <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
                         <Receipt size={14} style={{ color: 'var(--teal)' }} />
                         <span style={{ fontWeight: 800, fontSize: 13.5, color: 'var(--ink)' }}>
-                          {fmtDateTime(activeGroup.date)}
+                          {fmtDateTime(activeGroup.checkedOutAt)}
                         </span>
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 4 }}>
