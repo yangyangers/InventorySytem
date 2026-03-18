@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback, useRef } from 'react'
 import { Plus, Search, Edit2, Trash2, ArrowLeftRight, X, ChevronLeft, ChevronRight, Package, Filter } from 'lucide-react'
 import { sb } from '@/lib/supabase'
 import { useAuth } from '@/store/auth'
-import { Product, Category, Supplier, Customer, UNITS } from '@/types'
+import { Product, Category, Supplier, Customer, UNITS, WELLPRINT_UNITS } from '@/types'
 import { php, stockBadge, genVoucherNumber, genRefNumber, genSkuPrefix } from '@/lib/utils'
 import { Modal, Alert, Field, SkeletonRows, Empty, Confirm } from '@/components/ui'
 import { useToast } from '@/components/ui/Toast'
@@ -65,7 +65,7 @@ function StockBar({ quantity, reorderLevel }: { quantity: number; reorderLevel: 
 }
 // ─────────────────────────────────────────────────────────────────────────────
 
-const BLANK = { sku:'', name:'', description:'', category_id:'', supplier_id:'', unit:'pcs', quantity:0, reorder_level:10, cost_price:0, selling_price:0 }
+const BLANK = { sku:'', name:'', description:'', category_id:'', sub_category_id:'', supplier_id:'', unit:'pcs', quantity:0, reorder_level:10, cost_price:0, selling_price:0 }
 const BLANK_TX = { type: 'stock_in' as 'stock_in'|'stock_out'|'adjustment', qty:1, notes:'', voucher_number:'', reference_number:'', date_of_sale:'', customer_name:'', customer_phone:'' }
 
 export default function Inventory() {
@@ -79,9 +79,12 @@ export default function Inventory() {
   const [page, setPage]       = useState(1)
   const [search, setSearch]   = useState('')
   const [catF, setCatF]       = useState('')
+  const [subCatF, setSubCatF] = useState('')
   const [stockF, setStockF]   = useState('')
   const [sortBy, setSortBy]   = useState('name_asc')
   const [loading, setLoading] = useState(true)
+  const [searchInput, setSearchInput] = useState('')   // raw input value
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const [modal, setModal]       = useState<'add'|'edit'|null>(null)
   const [txModal, setTxModal]   = useState(false)
@@ -108,37 +111,60 @@ export default function Inventory() {
     setCusts(cu.data as Customer[] ?? [])
   }, [user])
 
+  // Use refs so loadRows doesn't get recreated on every filter change
+  const filterRef = useRef({ page: 1, search: '', catF: '', stockF: '', sortBy: 'name_asc', cats: [] as Category[] })
+  filterRef.current = { page, search, catF, subCatF, stockF, sortBy, cats } as any
+
   const loadRows = useCallback(async () => {
     if (!user) return
     setLoading(true)
+    const { page: p, search: s, catF: cf, stockF: sf, sortBy: sb2, cats: c } = filterRef.current
 
-    // Determine order column and direction from sortBy
-    let orderCol = 'name'
-    let orderAsc = true
-    if (sortBy === 'name_asc')    { orderCol = 'name';       orderAsc = true  }
-    if (sortBy === 'name_desc')   { orderCol = 'name';       orderAsc = false }
-    if (sortBy === 'sku_asc')     { orderCol = 'sku';        orderAsc = true  }
-    if (sortBy === 'sku_desc')    { orderCol = 'sku';        orderAsc = false }
-    if (sortBy === 'latest')      { orderCol = 'created_at'; orderAsc = false }
-    if (sortBy === 'oldest')      { orderCol = 'created_at'; orderAsc = true  }
+    let orderCol = 'name', orderAsc = true
+    if (sb2 === 'name_desc')   { orderCol = 'name';       orderAsc = false }
+    if (sb2 === 'sku_asc')     { orderCol = 'sku';        orderAsc = true  }
+    if (sb2 === 'sku_desc')    { orderCol = 'sku';        orderAsc = false }
+    if (sb2 === 'latest')      { orderCol = 'created_at'; orderAsc = false }
+    if (sb2 === 'oldest')      { orderCol = 'created_at'; orderAsc = true  }
 
     let q = sb.from('products')
       .select('*, categories(name), suppliers(name)', { count: 'exact' })
       .eq('business_id', user.business_id).eq('is_active', true)
-      .order(orderCol, { ascending: orderAsc }).range((page-1)*PER, page*PER-1)
-    if (search) q = q.or(`name.ilike.%${search}%,sku.ilike.%${search}%`)
-    if (catF)   q = q.eq('category_id', catF)
-    if (stockF === 'low') q = q.gt('quantity', 0).lte('quantity', 20)
-    if (stockF === 'out') q = q.eq('quantity', 0)
-    if (stockF === 'ok')  q = q.gt('quantity', 20)
+      .order(orderCol, { ascending: orderAsc }).range((p-1)*PER, p*PER-1)
+    if (s) q = q.or(`name.ilike.%${s}%,sku.ilike.%${s}%`)
+    if (cf) {
+      if (user?.business_id === 'wellprint') {
+        const { subCatF: scf } = filterRef.current as any
+        if (scf) {
+          // specific sub-category selected
+          q = q.eq('category_id', scf)
+        } else {
+          // parent selected — include parent + all its children
+          const childIds = c.filter(cat => cat.parent_id === cf).map(cat => cat.id)
+          q = q.in('category_id', childIds.length > 0 ? [cf, ...childIds] : [cf])
+        }
+      } else {
+        q = q.eq('category_id', cf)
+      }
+    }
+    if (sf === 'low') q = q.gt('quantity', 0).lte('quantity', 20)
+    if (sf === 'out') q = q.eq('quantity', 0)
+    if (sf === 'ok')  q = q.gt('quantity', 20)
     const { data, count } = await q
     setRows(data as Product[] ?? [])
     setTotal(count ?? 0)
     setLoading(false)
-  }, [user, page, search, catF, stockF, sortBy])
+  }, [user])   // ← only depends on user, not every filter
 
   useEffect(() => { loadMeta() }, [loadMeta])
-  useEffect(() => { loadRows() }, [loadRows])
+  // Re-run loadRows whenever filters change (but search uses debounce below)
+  useEffect(() => { loadRows() }, [loadRows, page, catF, subCatF, stockF, sortBy])
+  // Debounce search: wait 350ms after last keystroke before querying
+  useEffect(() => {
+    if (searchTimer.current) clearTimeout(searchTimer.current)
+    searchTimer.current = setTimeout(() => { loadRows() }, 350)
+    return () => { if (searchTimer.current) clearTimeout(searchTimer.current) }
+  }, [search])
 
   // Auto-resolve SKU: look up existing product with same name in this business,
   // if found reuse its SKU, otherwise generate a new one from the prefix + DB count.
@@ -179,7 +205,17 @@ export default function Inventory() {
   function openAdd()  { setForm({ ...BLANK }); setErr(''); setOk(''); setSkuIsExisting(false); setModal('add') }
   function openEdit(p: Product) {
     setSelected(p)
-    setForm({ sku:p.sku, name:p.name, description:p.description??'', category_id:p.category_id??'', supplier_id:p.supplier_id??'', unit:p.unit, quantity:p.quantity, reorder_level:p.reorder_level, cost_price:p.cost_price, selling_price:p.selling_price })
+    // For Wellprint: if product's category is a subcategory, populate both parent + sub fields
+    const catId = p.category_id ?? ''
+    const catObj = cats.find(c => c.id === catId)
+    const isSubCat = catObj?.parent_id ? true : false
+    setForm({
+      sku: p.sku, name: p.name, description: p.description??'',
+      category_id: isSubCat ? (catObj?.parent_id ?? '') : catId,
+      sub_category_id: isSubCat ? catId : '',
+      supplier_id: p.supplier_id??'', unit: p.unit, quantity: p.quantity,
+      reorder_level: p.reorder_level, cost_price: p.cost_price, selling_price: p.selling_price
+    })
     setErr(''); setOk(''); setModal('edit')
   }
   function openTx(p: Product) {
@@ -240,7 +276,10 @@ export default function Inventory() {
         const sku = await resolveSkuForName(form.name)
         if (!sku) { setErr('Could not generate SKU. Please enter a product name.'); return }
         setForm(p => ({ ...p, sku }))
-        const payload = { ...form, sku, business_id: user!.business_id, is_active:true, category_id: form.category_id||null, supplier_id: form.supplier_id||null, updated_at: new Date().toISOString() }
+        const finalCatId = (user?.business_id === 'wellprint' && form.sub_category_id) ? form.sub_category_id : (form.category_id || null)
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { sub_category_id: _sc1, ...formClean1 } = form
+        const payload = { ...formClean1, sku, business_id: user!.business_id, is_active:true, category_id: finalCatId, supplier_id: form.supplier_id||null, updated_at: new Date().toISOString() }
         const { data: created, error } = await sb.from('products').insert({ ...payload }).select('id').single()
         if (error) { setErr(error.message); return }
         if (form.quantity > 0 && created) {
@@ -251,7 +290,10 @@ export default function Inventory() {
 
       } else {
         // ── Edit mode ──
-        const payload = { ...form, business_id: user!.business_id, is_active:true, category_id: form.category_id||null, supplier_id: form.supplier_id||null, updated_at: new Date().toISOString() }
+        const finalCatId = (user?.business_id === 'wellprint' && form.sub_category_id) ? form.sub_category_id : (form.category_id || null)
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { sub_category_id: _sc2, ...formClean2 } = form
+        const payload = { ...formClean2, business_id: user!.business_id, is_active:true, category_id: finalCatId, supplier_id: form.supplier_id||null, updated_at: new Date().toISOString() }
         const { error } = await sb.from('products').update(payload).eq('id', selected!.id)
         if (error) { setErr(error.message); return }
         toast.success('Product updated!', form.name + ' was saved successfully')
@@ -320,13 +362,19 @@ export default function Inventory() {
       <div className="card" style={{ padding: '14px 16px', marginBottom: 16, display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
         <div className="search-wrap" style={{ flex: 1, minWidth: 220 }}>
           <Search size={14} className="si" />
-          <input className="input" placeholder="Search by name or SKU…" value={search} onChange={e => { setSearch(e.target.value); setPage(1) }} />
-          {search && <button className="search-clear" onClick={() => setSearch('')}><X size={11} /></button>}
+          <input className="input" placeholder="Search by name or SKU…" value={searchInput} onChange={e => { setSearchInput(e.target.value); setSearch(e.target.value); setPage(1) }} />
+          {search && <button className="search-clear" onClick={() => { setSearch(''); setSearchInput('') }}><X size={11} /></button>}
         </div>
-        <select className="input" style={{ width: 190 }} value={catF} onChange={e => { setCatF(e.target.value); setPage(1) }}>
+        <select className="input" style={{ width: 170 }} value={catF} onChange={e => { setCatF(e.target.value); setSubCatF(''); setPage(1) }}>
           <option value="">All Categories</option>
-          {cats.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+          {cats.filter(c => !c.parent_id).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
         </select>
+        {user?.business_id === 'wellprint' && (
+          <select className="input" style={{ width: 170 }} value={subCatF} onChange={e => { setSubCatF(e.target.value); setPage(1) }} disabled={!catF}>
+            <option value="">All Sub-categories</option>
+            {cats.filter(c => c.parent_id === catF).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+        )}
         <select className="input" style={{ width: 145 }} value={stockF} onChange={e => { setStockF(e.target.value); setPage(1) }}>
           <option value="">All Status</option>
           <option value="ok">In Stock</option>
@@ -341,7 +389,7 @@ export default function Inventory() {
           <option value="latest">Latest Added</option>
           <option value="oldest">Oldest Added</option>
         </select>
-        {(search || catF || stockF) && (
+        {(search || catF || subCatF || stockF) && (
           <button className="btn btn-ghost btn-sm" onClick={() => { setSearch(''); setCatF(''); setStockF(''); setSortBy('name_asc'); setPage(1) }}>
             <X size={13} /> Clear
           </button>
@@ -354,7 +402,7 @@ export default function Inventory() {
           <table className="table">
             <thead>
               <tr>
-                <th>Product</th><th>SKU</th><th>Category</th><th>Supplier</th>
+                <th>Product</th><th>SKU</th><th>{user?.business_id === 'wellprint' ? 'Category / Sub-cat' : 'Category'}</th><th>Supplier</th>
                 <th style={{ textAlign: 'center' }}>Stock</th><th style={{ textAlign: 'center' }}>Status</th><th>Cost</th><th>Selling Price</th>
                 <th style={{ textAlign: 'right' }}>Actions</th>
               </tr>
@@ -374,7 +422,20 @@ export default function Inventory() {
                         {p.description && <p style={{ fontSize: 11.5, color: 'var(--c-text3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 200 }}>{p.description}</p>}
                       </td>
                       <td><code className="mono badge badge-navy" style={{ fontSize: 11.5, borderRadius: 6, padding: '3px 8px' }}>{p.sku}</code></td>
-                      <td style={{ fontSize: 13, color: 'var(--c-text2)' }}>{(p as any).categories?.name ?? <span style={{ color: 'var(--c-text4)' }}>—</span>}</td>
+                      <td style={{ fontSize: 13, color: 'var(--c-text2)' }}>
+                        {(() => {
+                          const cat = (p as any).categories
+                          if (!cat) return <span style={{ color: 'var(--c-text4)' }}>—</span>
+                          if (user?.business_id === 'wellprint') {
+                            const catObj = cats.find(c => c.id === p.category_id)
+                            if (catObj?.parent_id) {
+                              const parent = cats.find(c => c.id === catObj.parent_id)
+                              if (parent) return <span>{parent.name} <span style={{ color: 'var(--c-text4)' }}>›</span> {cat.name}</span>
+                            }
+                          }
+                          return cat.name
+                        })()}
+                      </td>
                       <td style={{ fontSize: 13, color: 'var(--c-text2)' }}>{(p as any).suppliers?.name ?? <span style={{ color: 'var(--c-text4)' }}>—</span>}</td>
                       <td style={{ textAlign: 'center' }}>
                         <span style={{ fontWeight: 800, color: 'var(--ink)', fontSize: 15, fontFamily: 'var(--font-head)' }}>{p.quantity}</span>
@@ -473,7 +534,7 @@ export default function Inventory() {
               </Field>
               <Field label="Unit" required>
                 <select className="input" value={form.unit} onChange={e => f('unit', e.target.value)}>
-                  {UNITS.map(u => <option key={u}>{u}</option>)}
+                  {(user?.business_id === 'wellprint' ? WELLPRINT_UNITS : UNITS).map(u => <option key={u}>{u}</option>)}
                 </select>
               </Field>
             </div>
@@ -481,19 +542,61 @@ export default function Inventory() {
               <textarea className="input" rows={2} value={form.description} onChange={e => f('description', e.target.value)} placeholder="Optional description…" />
             </Field>
             <div className="grid-2">
-              <Field label="Category">
-                <select className="input" value={form.category_id} onChange={e => f('category_id', e.target.value)}>
-                  <option value="">— Select category —</option>
-                  {cats.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                </select>
-              </Field>
+              {user?.business_id === 'wellprint' ? (
+                <>
+                  <Field label="Category">
+                    <select className="input" value={form.category_id} onChange={e => {
+                      f('category_id', e.target.value)
+                      f('sub_category_id', '')  // reset sub when parent changes
+                    }}>
+                      <option value="">— Select category —</option>
+                      {cats.filter(c => !c.parent_id).map(c => (
+                        <option key={c.id} value={c.id}>{c.name}</option>
+                      ))}
+                    </select>
+                  </Field>
+                  <Field label="Sub-category">
+                    <select
+                      className="input"
+                      value={form.sub_category_id}
+                      onChange={e => f('sub_category_id', e.target.value)}
+                      disabled={!form.category_id}
+                    >
+                      <option value="">— Select sub-category —</option>
+                      {cats.filter(c => c.parent_id === form.category_id).map(c => (
+                        <option key={c.id} value={c.id}>{c.name}</option>
+                      ))}
+                    </select>
+                    {form.category_id && cats.filter(c => c.parent_id === form.category_id).length === 0 && (
+                      <p style={{ fontSize: 11.5, color: 'var(--c-text4)', marginTop: 4 }}>No sub-categories for this category yet.</p>
+                    )}
+                  </Field>
+                </>
+              ) : (
+                <Field label="Category">
+                  <select className="input" value={form.category_id} onChange={e => f('category_id', e.target.value)}>
+                    <option value="">— Select category —</option>
+                    {cats.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  </select>
+                </Field>
+              )}
+              {user?.business_id !== 'wellprint' && (
+                <Field label="Supplier">
+                  <select className="input" value={form.supplier_id} onChange={e => f('supplier_id', e.target.value)}>
+                    <option value="">— Select supplier —</option>
+                    {sups.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                  </select>
+                </Field>
+              )}
+            </div>
+            {user?.business_id === 'wellprint' && (
               <Field label="Supplier">
                 <select className="input" value={form.supplier_id} onChange={e => f('supplier_id', e.target.value)}>
                   <option value="">— Select supplier —</option>
                   {sups.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                 </select>
               </Field>
-            </div>
+            )}
             <div className="grid-2">
               {modal === 'add' && (
                 <Field label="Initial Quantity" hint="A Stock In transaction will be recorded automatically">

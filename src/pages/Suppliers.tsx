@@ -77,14 +77,14 @@ export default function Suppliers() {
           </div>
         : <div className="stagger" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(280px,1fr))', gap: 16 }}>
             {items.map(s => (
-              <div key={s.id} className="card" style={{ padding: 20 }}>
+              <div key={s.id} className="card entity-card" style={{ padding: 20 }}>
                 <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 14 }}>
-                  <div style={{ width: 44, height: 44, borderRadius: 12, background: 'rgba(14,165,233,.08)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <div style={{ width: 44, height: 44, borderRadius: 12, background: 'rgba(14,165,233,.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'transform .2s' }}>
                     <Truck size={20} style={{ color: 'var(--teal)' }} />
                   </div>
-                  <div style={{ display: 'flex', gap: 4 }}>
-                    <button className="btn-icon" onClick={() => open(s)}><Edit2 size={14} /></button>
-                    {user?.role === 'admin' && <button className="btn-icon danger" onClick={() => setDelItem(s)}><Trash2 size={14} /></button>}
+                  <div className="card-actions" style={{ display: 'flex', gap: 4 }}>
+                    <button className="btn-icon" title="Edit" onClick={() => open(s)}><Edit2 size={14} /></button>
+                    {user?.role === 'admin' && <button className="btn-icon danger" title="Archive" onClick={() => setDelItem(s)}><Trash2 size={14} /></button>}
                   </div>
                 </div>
                 <p style={{ fontWeight: 700, fontSize: 15, color: 'var(--ink)', marginBottom: 12, letterSpacing: '-.01em' }}>{s.name}</p>

@@ -13,6 +13,7 @@ export const AVATAR_COLORS = [
 ]
 
 export const UNITS = ["pcs","kg","g","L","mL","box","pack","roll","sheet","set","bag","drum","m","ft"]
+export const WELLPRINT_UNITS = [...UNITS, "sq ft"]
 
 export type Role = "admin" | "staff"
 export type TxType = "stock_in" | "stock_out" | "adjustment"
@@ -45,6 +46,7 @@ export interface Product {
 
 export interface Category {
   id: string; name: string; description: string | null
+  parent_id: string | null
   business_id: BizId; created_at: string
 }
 

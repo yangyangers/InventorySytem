@@ -104,9 +104,9 @@ export function Spinner({ size = 20, color = 'var(--c-text3)' }: { size?: number
 export function Empty({ icon, text, sub }: { icon: ReactNode; text: string; sub?: string }) {
   return (
     <div style={{ display:'flex', flexDirection:'column', alignItems:'center', padding:'60px 16px', gap:10 }}>
-      <div style={{ color:'var(--c-text4)', opacity:.5, marginBottom:4 }}>{icon}</div>
+      <div className="empty-icon" style={{ color:'var(--c-text4)', opacity:.5, marginBottom:4 }}>{icon}</div>
       <p style={{ color:'var(--c-text2)', fontSize:14, fontWeight:600 }}>{text}</p>
-      {sub && <p style={{ color:'var(--c-text3)', fontSize:12.5 }}>{sub}</p>}
+      {sub && <p style={{ color:'var(--c-text3)', fontSize:12.5, textAlign:'center', maxWidth:280 }}>{sub}</p>}
     </div>
   )
 }

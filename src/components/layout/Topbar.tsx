@@ -56,8 +56,9 @@ export default function Topbar({ onMenuClick, onCommandPalette }: Props) {
             background: 'var(--c-bg)', border: '1.5px solid var(--c-border)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             fontSize: 16, flexShrink: 0,
+            transition: 'transform .2s, background .2s, border-color .2s',
           }}>
-            {meta.emoji}
+            <span className="topbar-emoji" key={pathname}>{meta.emoji}</span>
           </div>
           <div style={{ minWidth: 0 }}>
             <h1 style={{

@@ -53,7 +53,8 @@ export function Transactions() {
       <div style={{ display: 'flex', gap: 6, marginBottom: 16, flexWrap: 'wrap' }}>
         {FILTER_TYPES.map(f => (
           <button key={f.v} onClick={() => { setType(f.v); setPage(1) }}
-            style={{ padding: '6px 16px', borderRadius: 20, fontSize: 13, fontWeight: 600, cursor: 'pointer', transition: 'all .15s', border: '1.5px solid', fontFamily: 'var(--font)',
+            className={`tx-filter-pill${type === f.v ? ' active' : ''}`}
+            style={{ padding: '6px 16px', borderRadius: 20, fontSize: 13, fontWeight: 600, cursor: 'pointer', border: '1.5px solid', fontFamily: 'var(--font)',
               borderColor: type === f.v ? 'var(--gold)' : 'var(--border)',
               background: type === f.v ? 'var(--gold)' : 'var(--c-white)',
               color: type === f.v ? 'var(--c-white)' : 'var(--c-text3)',

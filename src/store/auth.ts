@@ -34,19 +34,32 @@ export const useAuth = create<Auth>()((set) => ({
   init: () => {
     const { data: { subscription } } = sb.auth.onAuthStateChange(async (event, session) => {
       if (session) {
-        try {
-          // 8 second timeout — if Supabase hangs, we still mark ready
-          const profile = await withTimeout(
-            fetchProfile(session.user.id, session.user.email),
-            8000
-          )
+        // Retry up to 3 times to handle transient network/DB hiccups
+        let profile: SessionUser | null = null
+        for (let attempt = 1; attempt <= 3; attempt++) {
+          try {
+            profile = await withTimeout(
+              fetchProfile(session.user.id, session.user.email),
+              8000
+            )
+            if (profile) break
+          } catch (err) {
+            console.warn(`fetchProfile attempt ${attempt} failed:`, err)
+            if (attempt < 3) await new Promise(r => setTimeout(r, 1000 * attempt))
+          }
+        }
+
+        if (profile) {
           set({ user: profile, ready: true })
-        } catch (err) {
-          console.warn('fetchProfile failed or timed out:', err)
-          // Still mark ready so the app doesn't stay stuck on spinner
-          set({ user: null, ready: true })
+        } else {
+          // Profile fetch failed but the Supabase session is still valid.
+          // Do NOT set user:null here — that would log the user out for a
+          // transient DB/network error. Just mark ready without changing user.
+          console.warn('fetchProfile failed after 3 retries — keeping session alive')
+          set({ ready: true })
         }
       } else {
+        // No session at all — genuinely logged out
         set({ user: null, ready: true })
       }
     })

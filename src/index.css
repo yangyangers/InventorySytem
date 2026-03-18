@@ -260,7 +260,16 @@ h1, h2, h3, h4, h5, h6 { font-stretch: normal; }
 .input:focus { border-color: var(--c-teal); box-shadow: 0 0 0 3px var(--c-teal-dim); }
 .input:disabled { background: var(--c-bg); opacity: .6; cursor: not-allowed; }
 .input-mono { font-family: var(--mono); font-size: 12.5px; }
-select.input { cursor: pointer; }
+select.input {
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2.5'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 34px;
+}
 textarea.input { resize: vertical; min-height: 72px; line-height: 1.6; }
 
 /* Search */
@@ -747,5 +756,560 @@ kbd,
 .lp-card,
 .lp-theme-btn,
 .lp-in {
+  transition: background-color .22s ease, border-color .22s ease, color .18s ease, box-shadow .22s ease;
+}
+/* ════════════════════════════════════════════════════
+   ENHANCED DESIGN SYSTEM — Hover, Animations & Polish
+   ════════════════════════════════════════════════════ */
+
+/* ── New keyframes ───────────────────────────────── */
+@keyframes float        { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-6px)} }
+@keyframes ripple       { to { transform:scale(4); opacity:0 } }
+@keyframes slideInLeft  { from{opacity:0;transform:translateX(-14px)} to{opacity:1;transform:translateX(0)} }
+@keyframes slideInRight { from{opacity:0;transform:translateX(14px)} to{opacity:1;transform:translateX(0)} }
+@keyframes popIn        { 0%{opacity:0;transform:scale(0.85)} 70%{transform:scale(1.04)} 100%{opacity:1;transform:scale(1)} }
+@keyframes gradientShift{ 0%{background-position:0% 50%} 50%{background-position:100% 50%} 100%{background-position:0% 50%} }
+@keyframes statusGlow   { 0%,100%{box-shadow:0 0 6px currentColor} 50%{box-shadow:0 0 14px currentColor,0 0 24px currentColor} }
+@keyframes borderSpin   { to{transform:rotate(360deg)} }
+@keyframes countUp      { from{opacity:0;transform:translateY(8px) scale(0.92)} to{opacity:1;transform:translateY(0) scale(1)} }
+@keyframes navSlide     { from{opacity:0;transform:translateX(-8px)} to{opacity:1;transform:translateX(0)} }
+@keyframes toastIn      { from{opacity:0;transform:translateX(110%)} to{opacity:1;transform:translateX(0)} }
+@keyframes toastOut     { from{opacity:1;transform:translateX(0)} to{opacity:0;transform:translateX(110%)} }
+@keyframes modalIn      { from{opacity:0;transform:scale(0.94) translateY(12px)} to{opacity:1;transform:scale(1) translateY(0)} }
+@keyframes overlayIn    { from{opacity:0} to{opacity:1} }
+@keyframes heartbeat    { 0%,100%{transform:scale(1)} 14%{transform:scale(1.12)} 28%{transform:scale(1)} 42%{transform:scale(1.08)} 70%{transform:scale(1)} }
+@keyframes skeleton-wave{ 0%{background-position:-468px 0} 100%{background-position:468px 0} }
+@keyframes badge-pop    { 0%{transform:scale(0.7)} 60%{transform:scale(1.15)} 100%{transform:scale(1)} }
+@keyframes tab-slide    { from{transform:scaleX(0)} to{transform:scaleX(1)} }
+@keyframes iconBounce   { 0%,100%{transform:translateY(0) rotate(0deg)} 30%{transform:translateY(-4px) rotate(-8deg)} 60%{transform:translateY(-2px) rotate(4deg)} }
+
+/* ── Ripple effect ───────────────────────────────── */
+.btn { position: relative; overflow: hidden; }
+.btn .ripple-wave {
+  position: absolute;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.28);
+  transform: scale(0);
+  animation: ripple 0.55s linear;
+  pointer-events: none;
+}
+.btn-secondary .ripple-wave,
+.btn-ghost .ripple-wave { background: rgba(0,0,0,0.08); }
+
+/* ── Button enhancements ─────────────────────────── */
+.btn {
+  isolation: isolate;
+  letter-spacing: -0.01em;
+}
+.btn-primary {
+  background: linear-gradient(135deg, var(--c-gold) 0%, #e0b020 100%);
+  background-size: 200% 200%;
+}
+.btn-primary:hover:not(:disabled) {
+  background: linear-gradient(135deg, #e0b020 0%, #ebb830 50%, var(--c-gold) 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 22px rgba(212,160,23,0.45), 0 2px 8px rgba(212,160,23,0.25);
+}
+.btn-teal:hover:not(:disabled) {
+  box-shadow: 0 6px 22px rgba(91,148,144,0.45), 0 2px 8px rgba(91,148,144,0.25);
+  transform: translateY(-2px);
+}
+.btn-danger:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(201,78,78,0.25);
+}
+
+/* ── Nav link hover — richer ─────────────────────── */
+.nav-link {
+  position: relative;
+  transition: background .18s cubic-bezier(.4,0,.2,1), color .18s, transform .18s, border-color .18s;
+}
+.nav-link:hover {
+  background: var(--c-side-hover);
+  color: rgba(255,255,255,0.90);
+  transform: translateX(3px);
+}
+.nav-link.active {
+  transform: none;
+}
+.nav-link:hover .nav-icon-wrap {
+  background: rgba(255,255,255,0.10) !important;
+  transform: scale(1.08);
+}
+.nav-link.active .nav-icon-wrap {
+  background: rgba(212,160,23,0.22) !important;
+}
+
+/* Ripple on nav links */
+.nav-link::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius-sm);
+  background: rgba(255,255,255,0.06);
+  opacity: 0;
+  transition: opacity .2s;
+}
+.nav-link:hover::after { opacity: 1; }
+.nav-link.active::after { opacity: 0; }
+
+/* ── Active nav accent pulse ─────────────────────── */
+.nav-link.active::before {
+  animation: statusGlow 3s ease infinite;
+}
+
+/* ── Sidebar nav icon hover ──────────────────────── */
+.nav-link > div:first-child {
+  transition: background .18s, transform .18s !important;
+}
+.nav-link:hover > div:first-child {
+  transform: scale(1.1);
+}
+
+/* ── Card hover effects ──────────────────────────── */
+.card-hover {
+  transition: box-shadow .25s cubic-bezier(.4,0,.2,1), border-color .25s, transform .25s !important;
+}
+.card-hover:hover {
+  box-shadow: 0 8px 32px rgba(20,28,34,0.12), 0 2px 8px rgba(20,28,34,0.06) !important;
+  border-color: var(--c-border2) !important;
+  transform: translateY(-3px);
+}
+
+/* ── Stat card enhancements ──────────────────────── */
+.stat {
+  transition: box-shadow .25s cubic-bezier(.4,0,.2,1), transform .25s, border-color .25s !important;
+  cursor: default;
+}
+.stat:hover {
+  box-shadow: 0 10px 36px rgba(20,28,34,0.13), 0 3px 10px rgba(20,28,34,0.06) !important;
+  transform: translateY(-4px) !important;
+}
+.stat:hover .stat-icon {
+  animation: iconBounce 0.6s ease;
+}
+/* Counter animation on stat values */
+.stat .stat-value {
+  animation: countUp 0.45s cubic-bezier(.16,1,.3,1) both;
+}
+
+/* ── Table row hover ─────────────────────────────── */
+.table tbody tr {
+  transition: background .14s ease;
+  cursor: default;
+}
+.table tbody tr:hover td {
+  background: rgba(91,148,144,0.055) !important;
+}
+.table tbody tr:hover td:first-child {
+  border-left: 2.5px solid var(--c-teal);
+}
+.table tbody tr {
+  border-left: 2.5px solid transparent;
+}
+
+/* ── Enhanced skeleton shimmer ───────────────────── */
+.skel {
+  background: linear-gradient(90deg,
+    var(--c-bg) 25%,
+    var(--c-border) 37%,
+    var(--c-bg) 63%
+  );
+  background-size: 468px 100%;
+  animation: skeleton-wave 1.4s ease infinite;
+}
+
+/* ── Badge pop-in animation ──────────────────────── */
+.badge {
+  transition: transform .16s, box-shadow .16s;
+  animation: badge-pop 0.3s cubic-bezier(.16,1,.3,1) both;
+}
+.badge:hover {
+  transform: scale(1.06);
+}
+
+/* ── Pills interactive feel ──────────────────────── */
+.pill {
+  transition: all .18s cubic-bezier(.4,0,.2,1) !important;
+  position: relative;
+  overflow: hidden;
+}
+.pill:hover:not(.active) {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
+}
+.pill.active {
+  box-shadow: 0 4px 16px rgba(212,160,23,.35);
+  transform: translateY(-1px);
+}
+
+/* ── Input enhanced focus ring ───────────────────── */
+.input {
+  transition: border-color .18s, box-shadow .18s, background .18s !important;
+}
+.input:hover:not(:focus):not(:disabled) {
+  border-color: var(--c-border2);
+}
+.input:focus {
+  border-color: var(--c-teal);
+  box-shadow: 0 0 0 3.5px var(--c-teal-dim), 0 1px 3px rgba(0,0,0,0.06);
+  background: var(--c-white);
+}
+
+/* ── Modal improved animation ────────────────────── */
+.modal {
+  animation: modalIn .28s cubic-bezier(.16,1,.3,1) !important;
+}
+.overlay {
+  animation: overlayIn .18s ease !important;
+}
+
+/* ── Toast enhanced slide ────────────────────────── */
+.toast-item {
+  animation: toastIn .35s cubic-bezier(.16,1,.3,1) both !important;
+}
+.toast-item.removing {
+  animation: toastOut .3s ease forwards !important;
+}
+
+/* ── Tabs — active indicator slide ──────────────── */
+.tab {
+  transition: all .2s cubic-bezier(.4,0,.2,1) !important;
+  position: relative;
+}
+.tab:hover:not(.active) {
+  color: var(--c-text2);
+  background: rgba(255,255,255,0.5);
+}
+.tab.active {
+  animation: none;
+}
+
+/* ── Topbar search button polish ─────────────────── */
+.topbar-search-btn {
+  transition: all .2s cubic-bezier(.4,0,.2,1) !important;
+}
+.topbar-search-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm) !important;
+}
+
+/* ── Hamburger hover ─────────────────────────────── */
+.hamburger {
+  transition: all .18s cubic-bezier(.4,0,.2,1) !important;
+}
+.hamburger:hover {
+  transform: rotate(12deg) scale(1.08);
+}
+
+/* ── Btn-icon enhanced ───────────────────────────── */
+.btn-icon {
+  transition: all .18s cubic-bezier(.4,0,.2,1) !important;
+}
+.btn-icon:hover {
+  transform: scale(1.12);
+}
+.btn-icon:active { transform: scale(0.94) !important; }
+
+/* ── Page load stagger polish ────────────────────── */
+.stagger > *:nth-child(1)  { animation-delay: .03s }
+.stagger > *:nth-child(2)  { animation-delay: .07s }
+.stagger > *:nth-child(3)  { animation-delay: .11s }
+.stagger > *:nth-child(4)  { animation-delay: .15s }
+.stagger > *:nth-child(5)  { animation-delay: .19s }
+.stagger > *:nth-child(6)  { animation-delay: .23s }
+.stagger > *:nth-child(7)  { animation-delay: .27s }
+.stagger > *:nth-child(8)  { animation-delay: .31s }
+
+/* ── Page content entrance ───────────────────────── */
+.page > * {
+  animation: fadeUp 0.32s cubic-bezier(.16,1,.3,1) both;
+  animation-delay: calc(var(--i, 0) * 0.06s);
+}
+
+/* ── Section-head hover effects on action buttons ── */
+.section-head .btn {
+  transition: all .18s cubic-bezier(.4,0,.2,1);
+}
+
+/* ── Dark mode — deeper surface contrasts ────────── */
+[data-theme="dark"] .stat:hover {
+  box-shadow: 0 10px 40px rgba(0,0,0,0.5), 0 3px 12px rgba(0,0,0,0.3) !important;
+}
+[data-theme="dark"] .card-hover:hover {
+  box-shadow: 0 8px 36px rgba(0,0,0,0.50), 0 2px 10px rgba(0,0,0,0.30) !important;
+  border-color: rgba(255,255,255,0.14) !important;
+}
+[data-theme="dark"] .table tbody tr:hover td {
+  background: rgba(106,171,166,0.07) !important;
+}
+[data-theme="dark"] .table tbody tr:hover td:first-child {
+  border-left-color: var(--c-teal);
+}
+[data-theme="dark"] .input:focus {
+  background: var(--c-bg) !important;
+  box-shadow: 0 0 0 3.5px rgba(106,171,166,0.18), 0 1px 3px rgba(0,0,0,0.2);
+}
+[data-theme="dark"] .tab:hover:not(.active) {
+  background: rgba(255,255,255,0.06);
+  color: var(--c-text);
+}
+[data-theme="dark"] .pill:not(.active):hover {
+  background: rgba(255,255,255,0.07);
+  border-color: rgba(255,255,255,0.15);
+}
+[data-theme="dark"] .btn-secondary:hover:not(:disabled) {
+  background: rgba(255,255,255,0.08);
+  border-color: rgba(255,255,255,0.18);
+  color: var(--c-text);
+}
+[data-theme="dark"] .nav-link:hover {
+  background: rgba(106,171,166,0.14);
+}
+[data-theme="dark"] .skel {
+  background: linear-gradient(90deg,
+    rgba(255,255,255,0.03) 25%,
+    rgba(255,255,255,0.08) 37%,
+    rgba(255,255,255,0.03) 63%
+  );
+  background-size: 468px 100%;
+}
+
+/* ── Topbar dark mode glow line ──────────────────── */
+[data-theme="dark"] .topbar {
+  background: linear-gradient(180deg, #1e2d3e 0%, #1a2535 100%);
+  border-bottom: 1px solid rgba(91,148,144,0.12);
+  box-shadow: 0 1px 12px rgba(0,0,0,0.25);
+}
+
+/* ── Sidebar dark top glow ───────────────────────── */
+[data-theme="dark"] .sidebar {
+  background: linear-gradient(180deg, #1a2430 0%, #111b26 60%, #0d1520 100%);
+}
+
+/* ── Sidebar biz strip pulse dot ─────────────────── */
+.biz-dot-live {
+  animation: statusGlow 2.5s ease infinite;
+}
+
+/* ── Card inset in dark mode ─────────────────────── */
+[data-theme="dark"] .card-inset {
+  background: rgba(0,0,0,0.20);
+  border-color: rgba(255,255,255,0.06);
+}
+
+/* ── Progress fill glow ──────────────────────────── */
+.progress-fill {
+  box-shadow: 0 0 8px currentColor;
+  transition: width .7s cubic-bezier(.16,1,.3,1), box-shadow .3s !important;
+}
+
+/* ── Table header sticky hover ───────────────────── */
+.table thead th {
+  transition: background .15s, color .15s;
+}
+.table thead th:hover {
+  background: var(--c-border) !important;
+  color: var(--c-text);
+  cursor: pointer;
+}
+[data-theme="dark"] .table thead th {
+  background: rgba(255,255,255,0.04);
+  color: var(--c-text2);
+}
+[data-theme="dark"] .table thead th:hover {
+  background: rgba(255,255,255,0.08) !important;
+  color: var(--c-text);
+}
+
+/* ── Modal close button enhanced ────────────────── */
+.modal button[aria-label="close"],
+.modal-head button {
+  transition: all .18s !important;
+}
+
+/* ── Link & nav hover reveal underline ───────────── */
+a.hover-underline {
+  position: relative;
+}
+a.hover-underline::after {
+  content: '';
+  position: absolute;
+  bottom: -1px; left: 0;
+  width: 0; height: 1.5px;
+  background: var(--c-teal);
+  transition: width .22s cubic-bezier(.4,0,.2,1);
+  border-radius: 1px;
+}
+a.hover-underline:hover::after { width: 100%; }
+
+/* ── Empty state float ───────────────────────────── */
+.empty-icon {
+  animation: float 3.5s ease-in-out infinite;
+}
+
+/* ── Confirm dialog icon heartbeat ──────────────── */
+.confirm-icon {
+  animation: heartbeat 2s ease-in-out infinite;
+}
+
+/* ── Keyboard shortcut chip ──────────────────────── */
+kbd {
+  transition: all .15s;
+}
+kbd:hover {
+  border-color: var(--c-teal);
+  color: var(--c-teal);
+}
+
+/* ── Scroll fade edges ───────────────────────────── */
+.scroll-fade-x {
+  position: relative;
+}
+.scroll-fade-x::after {
+  content: '';
+  position: absolute;
+  right: 0; top: 0; bottom: 0;
+  width: 28px;
+  background: linear-gradient(to right, transparent, var(--c-white));
+  pointer-events: none;
+  z-index: 1;
+}
+[data-theme="dark"] .scroll-fade-x::after {
+  background: linear-gradient(to right, transparent, var(--c-bg));
+}
+
+/* ── Topbar search button ────────────────────────── */
+.topbar-search-btn:active {
+  transform: translateY(0) scale(0.97) !important;
+}
+
+/* ── Avatar initials hover glow ──────────────────── */
+.avatar-badge {
+  transition: box-shadow .2s, transform .2s;
+}
+.avatar-badge:hover {
+  transform: scale(1.08);
+}
+
+/* ── Form field label transition ─────────────────── */
+.label, label {
+  transition: color .15s;
+}
+
+/* ── Alert slide in ──────────────────────────────── */
+.alert {
+  animation: slideInLeft .25s cubic-bezier(.16,1,.3,1) both;
+}
+
+/* ── Sidebar logo subtle float ───────────────────── */
+.sidebar .sidebar-logo img {
+  transition: opacity .25s, filter .25s;
+}
+.sidebar:hover .sidebar-logo img {
+  opacity: 1 !important;
+}
+
+/* ── Dark/light theme transition ─────────────────── */
+html {
+  transition: background-color .25s ease;
+}
+
+/* ── Stat accent top border glow ─────────────────── */
+.stat {
+  position: relative;
+  overflow: hidden;
+}
+.stat::after {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  background: inherit;
+  filter: blur(6px);
+  opacity: 0;
+  transition: opacity .25s;
+}
+.stat:hover::after {
+  opacity: 1;
+}
+
+/* ── Topbar page emoji bounce on mount ───────────── */
+.topbar-emoji {
+  animation: iconBounce 0.6s cubic-bezier(.16,1,.3,1) both;
+  display: inline-block;
+}
+
+/* ── Search wrap focus ring ──────────────────────── */
+.search-wrap:focus-within .input {
+  border-color: var(--c-teal);
+  box-shadow: 0 0 0 3px var(--c-teal-dim);
+}
+.search-wrap:focus-within .si {
+  color: var(--c-teal);
+  transition: color .18s;
+}
+
+/* ── Btn loading state pulse ─────────────────────── */
+.btn:disabled:not([style*="opacity"]) {
+  animation: pulse-dot 1.5s ease infinite;
+}
+
+/* ── Dark mode badge text adjustments ───────────── */
+[data-theme="dark"] .badge-green  { background: rgba(61,186,132,0.15); color: #5ed4a4; }
+[data-theme="dark"] .badge-amber  { background: rgba(212,160,23,0.15);  color: #e8c050; }
+[data-theme="dark"] .badge-red    { background: rgba(224,90,90,0.15);   color: #f08080; }
+[data-theme="dark"] .badge-blue,
+[data-theme="dark"] .badge-teal   { background: rgba(106,171,166,0.16); color: #7ac4be; }
+[data-theme="dark"] .badge-navy   { background: rgba(255,255,255,0.06); color: var(--c-text3); }
+[data-theme="dark"] .badge-purple { background: rgba(150,155,220,0.14); color: #b0b4e8; }
+
+/* ── Refined scrollbar in dark ───────────────────── */
+[data-theme="dark"] ::-webkit-scrollbar-thumb {
+  background: rgba(106,171,166,0.22);
+}
+[data-theme="dark"] ::-webkit-scrollbar-thumb:hover {
+  background: rgba(106,171,166,0.40);
+}
+
+/* ── Card top glow accent on hover ───────────────── */
+.card {
+  transition: box-shadow .25s cubic-bezier(.4,0,.2,1), border-color .25s, transform .25s;
+}
+
+/* ── Dropdown/select styling ─────────────────────── */
+[data-theme="dark"] select.input {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238ba3b0' stroke-width='2.5'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+}
+
+/* ── Sidebar footer buttons smoother ─────────────── */
+.sidebar footer button,
+.sidebar > div:last-child button {
+  transition: all .2s cubic-bezier(.4,0,.2,1) !important;
+}
+
+/* ── Topbar avatar link hover ────────────────────── */
+a[href="/profile"] {
+  transition: all .2s cubic-bezier(.4,0,.2,1) !important;
+}
+a[href="/profile"]:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm) !important;
+}
+
+/* ── Smooth color theme transition for more elements */
+.badge,
+.nav-link > div:first-child,
+.btn-icon,
+.page-icon,
+.topbar-date,
+.topbar-biz-name,
+.search-wrap .input,
+.tabs,
+.tab,
+.modal-head,
+.modal-foot {
   transition: background-color .22s ease, border-color .22s ease, color .18s ease, box-shadow .22s ease;
 }

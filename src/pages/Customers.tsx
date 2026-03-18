@@ -150,14 +150,14 @@ export default function Customers() {
           </div>
         : <div className="stagger" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(280px,1fr))', gap: 16 }}>
             {items.map(c => (
-              <div key={c.id} className="card" style={{ padding: 20, cursor: 'pointer' }} onClick={() => openHistory(c)}>
+              <div key={c.id} className="card entity-card" style={{ padding: 20, cursor: 'pointer' }} onClick={() => openHistory(c)}>
                 <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 14 }}>
-                  <div style={{ width: 44, height: 44, borderRadius: 12, background: 'rgba(91,148,144,.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <div style={{ width: 44, height: 44, borderRadius: 12, background: 'rgba(91,148,144,.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'transform .2s' }}>
                     <Users size={20} style={{ color: 'var(--teal)' }} />
                   </div>
-                  <div style={{ display: 'flex', gap: 4 }}>
-                    <button className="btn-icon" onClick={e => { e.stopPropagation(); open(c) }}><Edit2 size={14} /></button>
-                    {user?.role === 'admin' && <button className="btn-icon danger" onClick={e => { e.stopPropagation(); setDelItem(c) }}><Trash2 size={14} /></button>}
+                  <div className="card-actions" style={{ display: 'flex', gap: 4 }}>
+                    <button className="btn-icon" title="Edit" onClick={e => { e.stopPropagation(); open(c) }}><Edit2 size={14} /></button>
+                    {user?.role === 'admin' && <button className="btn-icon danger" title="Archive" onClick={e => { e.stopPropagation(); setDelItem(c) }}><Trash2 size={14} /></button>}
                   </div>
                 </div>
                 <p style={{ fontWeight: 700, fontSize: 15, color: 'var(--ink)', marginBottom: 10, letterSpacing: '-.01em' }}>{c.name}</p>
@@ -170,7 +170,7 @@ export default function Customers() {
                   <span style={{ display: 'flex', alignItems: 'center', gap: 6, color: 'var(--teal)', fontSize: 12.5, fontWeight: 700 }}>
                     <ShoppingBag size={13} /> Purchase history
                   </span>
-                  <ChevronRight size={14} style={{ color: 'var(--c-text4)' }} />
+                  <ChevronRight size={14} style={{ color: 'var(--c-text4)', transition: 'transform .18s' }} className="chevron-right" />
                 </div>
               </div>
             ))}

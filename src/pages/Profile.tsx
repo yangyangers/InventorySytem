@@ -178,7 +178,7 @@ export default function Profile() {
       {/* Tabs */}
       <div className="tabs" style={{ marginBottom: 18 }}>
         {TABS.map(({ id, label, icon: Icon }) => (
-          <button key={id} className={`tab ${tab === id ? 'active' : ''}`} onClick={() => setTab(id as Tab)}>
+          <button key={id} className={`tab profile-tab ${tab === id ? 'active' : ''}`} onClick={() => setTab(id as Tab)}>
             <Icon size={14} />{label}
           </button>
         ))}
@@ -295,10 +295,9 @@ export default function Profile() {
           {/* Color palette */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 12, marginBottom: 24 }}>
             {AVATAR_COLORS.map(c => (
-              <button key={c} onClick={() => setColor(c)} style={{
+              <button key={c} onClick={() => setColor(c)} className={`avatar-swatch ${color === c ? 'selected' : ''}`} style={{
                 aspectRatio: '1', borderRadius: 14, background: c, cursor: 'pointer',
-                transition: 'all .2s',
-                transform: color === c ? 'scale(1.14)' : 'scale(1)',
+                transform: color === c ? 'scale(1.12)' : 'scale(1)',
                 boxShadow: color === c ? `0 0 0 3px white, 0 0 0 5px ${c}, 0 6px 16px ${c}70` : '0 2px 6px rgba(0,0,0,0.1)',
                 border: 'none',
               }} />

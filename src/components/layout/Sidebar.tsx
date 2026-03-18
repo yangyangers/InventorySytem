@@ -133,15 +133,16 @@ export default function Sidebar({ open, onClose }: Props) {
           <NavLink key={to} to={to} end={end} className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}>
             {({ isActive }) => (
               <>
-                <div style={{
+                <div className="nav-icon-wrap" style={{
                   width: 28, height: 28, borderRadius: 7, flexShrink: 0,
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   background: isActive ? 'rgba(212,160,23,0.18)' : 'rgba(255,255,255,0.04)',
-                  transition: 'background .14s',
+                  transition: 'background .18s, transform .18s',
                 }}>
                   <Icon size={14} strokeWidth={isActive ? 2.5 : 2} />
                 </div>
                 <span style={{ flex: 1 }}>{label}</span>
+                {isActive && <div style={{ width: 4, height: 4, borderRadius: '50%', background: 'var(--c-gold)', boxShadow: '0 0 6px var(--c-gold)', flexShrink: 0 }} />}
               </>
             )}
           </NavLink>
@@ -155,15 +156,16 @@ export default function Sidebar({ open, onClose }: Props) {
               <NavLink key={to} to={to} className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}>
                 {({ isActive }) => (
                   <>
-                    <div style={{
+                    <div className="nav-icon-wrap" style={{
                       width: 28, height: 28, borderRadius: 7, flexShrink: 0,
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                       background: isActive ? 'rgba(212,160,23,0.18)' : 'rgba(255,255,255,0.04)',
-                      transition: 'background .14s',
+                      transition: 'background .18s, transform .18s',
                     }}>
                       <Icon size={14} strokeWidth={isActive ? 2.5 : 2} />
                     </div>
                     <span style={{ flex: 1 }}>{label}</span>
+                    {isActive && <div style={{ width: 4, height: 4, borderRadius: '50%', background: 'var(--c-gold)', boxShadow: '0 0 6px var(--c-gold)', flexShrink: 0 }} />}
                   </>
                 )}
               </NavLink>

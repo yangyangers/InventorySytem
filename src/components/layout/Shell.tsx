@@ -37,7 +37,7 @@ export default function Shell() {
       <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       <div className="main">
         <Topbar onMenuClick={() => setSidebarOpen(o => !o)} onCommandPalette={openCmd} />
-        <div className="page">
+        <div className="page" key={location.pathname} style={{ animation: 'fadeUp 0.28s cubic-bezier(.16,1,.3,1) both' }}>
           <Outlet />
         </div>
       </div>

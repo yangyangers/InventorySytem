@@ -120,11 +120,11 @@ export default function Dashboard() {
     <div className="anim-fade-up" style={{ paddingBottom: 32 }}>
 
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 28, paddingBottom: 22, borderBottom: '1px solid var(--border)' }}>
+      <div className="dash-greeting" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 28, paddingBottom: 22, borderBottom: '1px solid var(--border)' }}>
         <div>
           <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--c-text4)', letterSpacing: '.07em', textTransform: 'uppercase', marginBottom: 5 }}>{today}</p>
           <h2 style={{ fontSize: 26, fontWeight: 900, color: 'var(--ink)', letterSpacing: '-.04em', fontFamily: 'var(--font-head)', lineHeight: 1.1 }}>
-            {greeting}, {user.full_name.split(' ')[0]} 👋
+            {greeting}, {user.full_name.split(' ')[0]} <span className="dash-greeting-wave">👋</span>
           </h2>
           <p style={{ color: 'var(--c-text3)', fontSize: 14, marginTop: 5 }}>
             Here's what's happening at{' '}
@@ -170,8 +170,8 @@ export default function Dashboard() {
             { label: 'Categories in Use',    value: [...new Set(products.map(p => p.category_id).filter(Boolean))].length, icon: <BoxSelect size={16} />, color: '#8b5cf6' },
             { label: 'Potential Profit',     value: php(retailValue - costValue), icon: <PhilippinePeso size={16} />, color: '#f59e0b' },
           ].map(s => (
-            <div key={s.label} style={{ background: 'var(--c-white)', borderRadius: 14, padding: '14px 18px', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 14 }}>
-              <div style={{ width: 38, height: 38, borderRadius: 11, background: 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <div key={s.label} className="dash-mini-stat" style={{ background: 'var(--c-white)', borderRadius: 14, padding: '14px 18px', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 14 }}>
+              <div className="dash-mini-icon" style={{ width: 38, height: 38, borderRadius: 11, background: 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'transform .22s' }}>
                 <span style={{ color: s.color }}>{s.icon}</span>
               </div>
               <div>

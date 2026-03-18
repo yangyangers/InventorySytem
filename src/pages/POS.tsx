@@ -380,7 +380,7 @@ export default function POS() {
                   {cart.length === 0 ? (
                     <tr><td colSpan={5} style={{ padding: 18, color: 'var(--c-text3)' }}>Cart is empty.</td></tr>
                   ) : cart.map(r => (
-                    <tr key={r.product_id}>
+                    <tr key={r.product_id} className="pos-cart-row">
                       <td>
                         <p style={{ fontWeight: 700, color: 'var(--ink)', fontSize: 13.5 }}>{r.name}</p>
                         <p style={{ fontSize: 11.5, color: 'var(--c-text3)' }}>{r.maxQty} {r.unit} available</p>
