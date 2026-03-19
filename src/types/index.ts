@@ -12,14 +12,38 @@ export const AVATAR_COLORS = [
   "#8a6e4b","#4a8a6f","#6b7e9e","#a07040",
 ]
 
-export const UNITS = ["pcs","kg","g","L","mL","box","pack","roll","sheet","set","bag","drum","m","ft"]
-export const WELLPRINT_UNITS = [...UNITS, "sq ft"]
+export const UNITS = [
+  // Quantity
+  "pcs", "set", "pair", "case", "box", "pack", "bag", "bundle",
+  // Weight
+  "kg", "g", "lb", "ton",
+  // Volume / Liquid
+  "L", "mL", "gal", "bottle", "drum", "tube", "tank",
+  // Length / Area
+  "m", "cm", "ft", "in",
+  // Roll / Sheet
+  "roll", "sheet",
+  // Transport / Bulk
+  "truck", "sack",
+]
+export const WELLPRINT_UNITS = [...UNITS, "sq ft", "sq m"]
+export const WELLBUILD_UNITS = [...UNITS, "cum", "cubic meter"]
 
 export type Role = "admin" | "staff"
 export type TxType = "stock_in" | "stock_out" | "adjustment"
+export type PaymentMethod = "cash" | "qr" | "maya" | "gcash" | "card"
+export type StockLocation = "production" | "store"
 
 export const TX_LABEL: Record<TxType, string> = {
   stock_in: "Stock In", stock_out: "Stock Out", adjustment: "Adjustment",
+}
+
+export const PAYMENT_METHOD_LABEL: Record<PaymentMethod, string> = {
+  cash: "Cash", qr: "QR Code", maya: "Maya", gcash: "GCash", card: "Credit / Debit Card",
+}
+
+export const STOCK_LOCATION_LABEL: Record<StockLocation, string> = {
+  production: "Production", store: "Store",
 }
 
 export interface SessionUser {
@@ -66,6 +90,11 @@ export interface Transaction {
   date_of_sale: string | null
   customer_name: string | null
   customer_phone: string | null
+  // WellPrint & TC Chemical extras
+  payment_method: PaymentMethod | null
+  payment_reference: string | null
+  amount_paid: number | null
+  stock_location: StockLocation | null
   products?: { name: string; sku: string; unit: string; selling_price?: number } | null
   users?: { full_name: string; username: string } | null
 }

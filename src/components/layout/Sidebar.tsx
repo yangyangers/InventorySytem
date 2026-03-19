@@ -1,7 +1,7 @@
 import { NavLink, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard, Package, ArrowLeftRight, Truck,
-  Users, BarChart3, Tag, LogOut, ChevronRight, Sun, Moon, X, UserCheck, TrendingUp, ShoppingCart,
+  Users, BarChart3, Tag, LogOut, ChevronRight, Sun, Moon, X, UserCheck, TrendingUp, ShoppingCart, Wallet,
 } from 'lucide-react'
 import { useAuth } from '@/store/auth'
 import { useTheme } from '@/store/theme'
@@ -147,6 +147,26 @@ export default function Sidebar({ open, onClose }: Props) {
             )}
           </NavLink>
         ))}
+
+        {/* Collectibles — only for WellPrint and TC Chemical */}
+        {(user.business_id === 'wellprint' || user.business_id === 'tcchemical') && (
+          <NavLink to="/collectibles" className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}>
+            {({ isActive }) => (
+              <>
+                <div className="nav-icon-wrap" style={{
+                  width: 28, height: 28, borderRadius: 7, flexShrink: 0,
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  background: isActive ? 'rgba(212,160,23,0.18)' : 'rgba(255,255,255,0.04)',
+                  transition: 'background .18s, transform .18s',
+                }}>
+                  <Wallet size={14} strokeWidth={isActive ? 2.5 : 2} />
+                </div>
+                <span style={{ flex: 1 }}>Collectibles</span>
+                {isActive && <div style={{ width: 4, height: 4, borderRadius: '50%', background: 'var(--c-gold)', boxShadow: '0 0 6px var(--c-gold)', flexShrink: 0 }} />}
+              </>
+            )}
+          </NavLink>
+        )}
 
         {user.role === 'admin' && (
           <>

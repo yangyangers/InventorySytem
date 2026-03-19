@@ -16,6 +16,7 @@ import Staff      from '@/pages/Staff'
 import Reports      from '@/pages/Reports'
 import SalesReports from '@/pages/SalesReports'
 import Categories   from '@/pages/Categories'
+import Collectibles from '@/pages/Collectibles'
 
 function Guard({ children, admin = false }: { children: React.ReactNode; admin?: boolean }) {
   const { user, ready } = useAuth()
@@ -55,6 +56,7 @@ export default function App() {
           <Route path="reports"        element={<Guard admin><Reports /></Guard>} />
           <Route path="sales-reports" element={<Guard admin><SalesReports /></Guard>} />
           <Route path="categories"   element={<Guard admin><Categories /></Guard>} />
+          <Route path="collectibles" element={<Collectibles />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

@@ -5,7 +5,7 @@ import { sb } from '@/lib/supabase'
 import { useAuth } from '@/store/auth'
 import { Modal, Alert, Field } from '@/components/ui'
 import { Customer, Product } from '@/types'
-import { BIZ, BizId } from '@/types'
+import { BIZ, BizId, PaymentMethod, StockLocation, PAYMENT_METHOD_LABEL, STOCK_LOCATION_LABEL } from '@/types'
 import { BIZ_LOGOS } from '@/lib/logos'
 import { genRefNumber } from '@/lib/utils'
 
@@ -51,7 +51,10 @@ export default function POS() {
   const [cart, setCart] = useState<CartRow[]>([])
 
   const [discount, setDiscount] = useState<number>(0)
-  const [payment, setPayment] = useState<number>(0)
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | ''>('')
+  const [paymentReference, setPaymentReference] = useState<string>('')
+  const [amountPaid, setAmountPaid] = useState<string>('')
+  const [stockLocation, setStockLocation] = useState<StockLocation | ''>('')
 
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState('')
@@ -84,7 +87,10 @@ export default function POS() {
 
   const subTotal = useMemo(() => cart.reduce((s, r) => s + r.qty * (r.selling_price || 0), 0), [cart])
   const totalDue = useMemo(() => Math.max(0, subTotal - (discount || 0)), [subTotal, discount])
-  const change = useMemo(() => Math.max(0, (payment || 0) - totalDue), [payment, totalDue])
+  const change   = useMemo(() => {
+    const paid = amountPaid !== '' ? Number(amountPaid) : 0
+    return Math.max(0, paid - totalDue)
+  }, [amountPaid, totalDue])
 
   function addToCart() {
     setErr(''); setOk('')
@@ -132,7 +138,10 @@ export default function POS() {
     setPickedQty(1)
     setCart([])
     setDiscount(0)
-    setPayment(0)
+    setPaymentMethod('')
+    setPaymentReference('')
+    setAmountPaid('')
+    setStockLocation('')
     setErr('')
     setOk('')
     setReceiptOpen(false)
@@ -141,11 +150,15 @@ export default function POS() {
   function printReceipt() {
     if (!user || !customer) return
 
-    const safeDiscount = Math.max(0, Number(discount) || 0)
-    const safePayment  = Math.max(0, Number(payment) || 0)
-    const safeSubTotal = subTotal
-    const safeTotal    = Math.max(0, safeSubTotal - safeDiscount)
-    const safeChange   = Math.max(0, safePayment - safeTotal)
+    const safeDiscount    = Math.max(0, Number(discount) || 0)
+    const safeSubTotal    = subTotal
+    const safeTotal       = Math.max(0, safeSubTotal - safeDiscount)
+    const isWellprintOrTC = user.business_id === 'wellprint' || user.business_id === 'tcchemical'
+    const safePaid        = amountPaid !== '' ? Math.max(0, Number(amountPaid) || 0) : safeTotal
+    const safeChange      = Math.max(0, safePaid - safeTotal)
+    const outstanding     = Math.max(0, safeTotal - safePaid)
+    const pmLabel         = paymentMethod ? PAYMENT_METHOD_LABEL[paymentMethod as PaymentMethod] : ''
+    const slLabel         = stockLocation ? STOCK_LOCATION_LABEL[stockLocation as StockLocation] : ''
 
     const lines = cart.map(r => ({
       name: r.name,
@@ -177,6 +190,7 @@ export default function POS() {
             .r{text-align:right}
             .b{font-weight:700}
             .small{font-size:11px}
+            .outstanding{background:#fef3c7;border:1px dashed #d97706;padding:6px 8px;border-radius:6px;margin-top:6px;}
           </style>
         </head>
         <body>
@@ -192,6 +206,7 @@ export default function POS() {
             <div><span class="muted">Customer:</span> ${customer.name}</div>
             ${customer.phone ? `<div><span class="muted">Phone:</span> ${customer.phone}</div>` : ''}
             <div><span class="muted">Cashier:</span> ${cashier}</div>
+            ${isWellprintOrTC && slLabel ? `<div><span class="muted">Location:</span> ${slLabel}</div>` : ''}
           </div>
           <div class="hr"></div>
           <table>
@@ -210,9 +225,11 @@ export default function POS() {
             <tr><td class="muted">Subtotal</td><td class="r">${money(safeSubTotal)}</td></tr>
             <tr><td class="muted">Discount</td><td class="r">-${money(safeDiscount)}</td></tr>
             <tr><td class="b">Total</td><td class="r b">${money(safeTotal)}</td></tr>
-            <tr><td class="muted">Payment</td><td class="r">${money(safePayment)}</td></tr>
+            <tr><td class="muted">Amount Paid</td><td class="r">${money(safePaid)}</td></tr>
             <tr><td class="muted">Change</td><td class="r">${money(safeChange)}</td></tr>
+            ${pmLabel ? `<tr><td class="muted">Method</td><td class="r">${pmLabel}${paymentReference ? ' · ' + paymentReference : ''}</td></tr>` : ''}
           </table>
+          ${outstanding > 0 ? `<div class="outstanding small"><span class="b">⚠ Remaining Balance: ${money(outstanding)}</span></div>` : ''}
           <div class="hr"></div>
           <div class="c small muted">Thank you!</div>
         </body>
@@ -254,6 +271,7 @@ export default function POS() {
       }
 
       // Insert all stock_out transactions in one call
+      const isWellprintOrTC = user.business_id === 'wellprint' || user.business_id === 'tcchemical'
       const txPayload = cart.map(r => ({
         product_id: r.product_id,
         business_id: user.business_id,
@@ -266,6 +284,10 @@ export default function POS() {
         date_of_sale: dateOfSale,
         customer_name: customer.name,
         customer_phone: customer.phone || null,
+        payment_method: isWellprintOrTC ? (paymentMethod || null) : null,
+        payment_reference: isWellprintOrTC ? (paymentReference.trim() || null) : null,
+        amount_paid: isWellprintOrTC ? (amountPaid !== '' ? Number(amountPaid) : null) : null,
+        stock_location: isWellprintOrTC ? (stockLocation || null) : null,
       }))
       const { error: txErr } = await sb.from('transactions').insert(txPayload)
       if (txErr) { setErr(txErr.message); return }
@@ -420,12 +442,54 @@ export default function POS() {
               <span style={{ fontWeight: 800, color: 'var(--c-text2)' }}>Total Due</span>
               <span style={{ fontWeight: 900, color: 'var(--ink)', fontSize: 18 }}>{money(totalDue)}</span>
             </div>
-            <Field label="Payment (₱)">
-              <input className="input" type="number" min={0} step="0.01" value={payment} onChange={e => setPayment(parseFloat(e.target.value) || 0)} />
+
+            <Field label="Amount Paid (₱)" hint="Leave blank if paying in full">
+              <input className="input" type="number" min={0} step="0.01" placeholder="0.00" value={amountPaid} onChange={e => setAmountPaid(e.target.value)} />
             </Field>
-            <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--c-text2)' }}>
-              <span>Change</span><b style={{ color: 'var(--ink)' }}>{money(change)}</b>
-            </div>
+
+            {/* Change */}
+            {amountPaid !== '' && change > 0 && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--c-text2)' }}>
+                <span>Change</span><b style={{ color: 'var(--ink)' }}>{money(change)}</b>
+              </div>
+            )}
+
+            {/* Remaining balance warning */}
+            {amountPaid !== '' && Number(amountPaid) < totalDue && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 12px', borderRadius: 10, border: '1.5px solid #fbbf24', background: '#fef3c7' }}>
+                <span style={{ fontWeight: 700, fontSize: 13, color: '#92400e' }}>Remaining Balance</span>
+                <span style={{ fontWeight: 900, fontSize: 13, color: '#92400e' }}>{money(totalDue - Number(amountPaid))}</span>
+              </div>
+            )}
+
+            {(user?.business_id === 'wellprint' || user?.business_id === 'tcchemical') && (
+              <div style={{ borderTop: '1px solid var(--border)', paddingTop: 10, marginTop: 2 }}>
+                <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--c-text3)', letterSpacing: '.07em', textTransform: 'uppercase', marginBottom: 8 }}>Payment Details</p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <Field label="Payment Method">
+                    <select className="input" value={paymentMethod} onChange={e => setPaymentMethod(e.target.value as PaymentMethod | '')}>
+                      <option value="">— Select method —</option>
+                      {(Object.entries(PAYMENT_METHOD_LABEL) as [PaymentMethod, string][]).map(([v, l]) => (
+                        <option key={v} value={v}>{l}</option>
+                      ))}
+                    </select>
+                  </Field>
+                  {paymentMethod && paymentMethod !== 'cash' && (
+                    <Field label="Payment Reference #" hint="GCash ref, card approval code, etc.">
+                      <input className="input input-mono" placeholder="Reference / approval #" value={paymentReference} onChange={e => setPaymentReference(e.target.value)} />
+                    </Field>
+                  )}
+                  <Field label="Stock Location">
+                    <select className="input" value={stockLocation} onChange={e => setStockLocation(e.target.value as StockLocation | '')}>
+                      <option value="">— Select location —</option>
+                      {(Object.entries(STOCK_LOCATION_LABEL) as [StockLocation, string][]).map(([v, l]) => (
+                        <option key={v} value={v}>{l}</option>
+                      ))}
+                    </select>
+                  </Field>
+                </div>
+              </div>
+            )}
 
             <button className="btn btn-primary" onClick={checkout} disabled={saving || loading} style={{ width: '100%', marginTop: 4 }}>
               {saving ? 'Checking out…' : 'Checkout'}
@@ -483,8 +547,14 @@ export default function POS() {
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11.5 }}><span style={{ color: 'var(--c-text3)' }}>Subtotal</span><b>{money(subTotal)}</b></div>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11.5 }}><span style={{ color: 'var(--c-text3)' }}>Discount</span><b>-{money(discount || 0)}</b></div>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12.5 }}><span style={{ fontWeight: 900 }}>Total</span><span style={{ fontWeight: 900 }}>{money(totalDue)}</span></div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11.5 }}><span style={{ color: 'var(--c-text3)' }}>Payment</span><b>{money(payment || 0)}</b></div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11.5 }}><span style={{ color: 'var(--c-text3)' }}>Change</span><b>{money(change)}</b></div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11.5 }}><span style={{ color: 'var(--c-text3)' }}>Amount Paid</span><b>{amountPaid !== '' ? money(Number(amountPaid)) : money(totalDue)}</b></div>
+            {change > 0 && <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11.5 }}><span style={{ color: 'var(--c-text3)' }}>Change</span><b>{money(change)}</b></div>}
+            {amountPaid !== '' && Number(amountPaid) < totalDue && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginTop: 4, padding: '5px 8px', borderRadius: 7, background: '#fef3c7', border: '1px solid #fbbf24' }}>
+                <span style={{ fontWeight: 700, color: '#92400e' }}>Remaining Balance</span>
+                <b style={{ color: '#92400e' }}>{money(totalDue - Number(amountPaid))}</b>
+              </div>
+            )}
           </div>
         </Modal>
       )}

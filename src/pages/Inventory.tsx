@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback, useRef } from 'react'
 import { Plus, Search, Edit2, Trash2, ArrowLeftRight, X, ChevronLeft, ChevronRight, Package, Filter } from 'lucide-react'
 import { sb } from '@/lib/supabase'
 import { useAuth } from '@/store/auth'
-import { Product, Category, Supplier, Customer, UNITS, WELLPRINT_UNITS } from '@/types'
+import { Product, Category, Supplier, Customer, UNITS, WELLPRINT_UNITS, WELLBUILD_UNITS, PaymentMethod, StockLocation, PAYMENT_METHOD_LABEL, STOCK_LOCATION_LABEL } from '@/types'
 import { php, stockBadge, genVoucherNumber, genRefNumber, genSkuPrefix } from '@/lib/utils'
 import { Modal, Alert, Field, SkeletonRows, Empty, Confirm } from '@/components/ui'
 import { useToast } from '@/components/ui/Toast'
@@ -66,7 +66,7 @@ function StockBar({ quantity, reorderLevel }: { quantity: number; reorderLevel: 
 // ─────────────────────────────────────────────────────────────────────────────
 
 const BLANK = { sku:'', name:'', description:'', category_id:'', sub_category_id:'', supplier_id:'', unit:'pcs', quantity:0, reorder_level:10, cost_price:0, selling_price:0 }
-const BLANK_TX = { type: 'stock_in' as 'stock_in'|'stock_out'|'adjustment', qty:1, notes:'', voucher_number:'', reference_number:'', date_of_sale:'', customer_name:'', customer_phone:'' }
+const BLANK_TX = { type: 'stock_in' as 'stock_in'|'stock_out'|'adjustment', qty:1, notes:'', voucher_number:'', reference_number:'', date_of_sale:'', customer_name:'', customer_phone:'', payment_method: '' as PaymentMethod|'', payment_reference:'', amount_paid:'', stock_location:'' as StockLocation|'' }
 
 export default function Inventory() {
   const { user } = useAuth()
@@ -313,6 +313,7 @@ export default function Inventory() {
       else                               newQty = qty
       const isIn  = tx.type === 'stock_in'
       const isOut = tx.type === 'stock_out'
+      const isWellprintOrTC = user!.business_id === 'wellprint' || user!.business_id === 'tcchemical'
       const { error } = await sb.from('transactions').insert({
         product_id: p.id, business_id: user!.business_id,
         transaction_type: tx.type, quantity: qty,
@@ -323,6 +324,10 @@ export default function Inventory() {
         date_of_sale: isOut ? (tx.date_of_sale||null) : null,
         customer_name: isOut ? (tx.customer_name||null) : null,
         customer_phone: isOut ? (tx.customer_phone||null) : null,
+        payment_method: (isOut && isWellprintOrTC) ? (tx.payment_method||null) : null,
+        payment_reference: (isOut && isWellprintOrTC) ? (tx.payment_reference||null) : null,
+        amount_paid: (isOut && isWellprintOrTC) ? (tx.amount_paid !== '' ? Number(tx.amount_paid) : null) : null,
+        stock_location: isWellprintOrTC ? (tx.stock_location||null) : null,
       })
       if (error) { setErr(error.message); return }
       await sb.from('products').update({ quantity: newQty, updated_at: new Date().toISOString() }).eq('id', p.id)
@@ -534,7 +539,7 @@ export default function Inventory() {
               </Field>
               <Field label="Unit" required>
                 <select className="input" value={form.unit} onChange={e => f('unit', e.target.value)}>
-                  {(user?.business_id === 'wellprint' ? WELLPRINT_UNITS : UNITS).map(u => <option key={u}>{u}</option>)}
+                  {(user?.business_id === 'wellprint' ? WELLPRINT_UNITS : user?.business_id === 'wellbuild' ? WELLBUILD_UNITS : UNITS).map(u => <option key={u}>{u}</option>)}
                 </select>
               </Field>
             </div>
@@ -718,9 +723,49 @@ export default function Inventory() {
                         <input className="input" placeholder="+63 9XX XXX XXXX" value={tx.customer_phone} onChange={e => setTx(p => ({ ...p, customer_phone: e.target.value }))} />
                       </Field>
                     </div>
+                    {(user?.business_id === 'wellprint' || user?.business_id === 'tcchemical') && (
+                      <>
+                        <div className="grid-2">
+                          <Field label="Payment Method">
+                            <select className="input" value={tx.payment_method} onChange={e => setTx(p => ({ ...p, payment_method: e.target.value as PaymentMethod | '' }))}>
+                              <option value="">— Select method —</option>
+                              {(Object.entries(PAYMENT_METHOD_LABEL) as [PaymentMethod, string][]).map(([v, l]) => (
+                                <option key={v} value={v}>{l}</option>
+                              ))}
+                            </select>
+                          </Field>
+                          <Field label="Payment Reference #" hint="e.g. GCash ref, card approval code">
+                            <input className="input input-mono" placeholder="Reference / approval #" value={tx.payment_reference} onChange={e => setTx(p => ({ ...p, payment_reference: e.target.value }))} />
+                          </Field>
+                        </div>
+                        <div className="grid-2">
+                          <Field label="Amount Paid (₱)" hint="Leave blank if fully paid">
+                            <input className="input" type="number" min={0} step="0.01" placeholder="0.00" value={tx.amount_paid} onChange={e => setTx(p => ({ ...p, amount_paid: e.target.value }))} />
+                          </Field>
+                          <Field label="Stock Location">
+                            <select className="input" value={tx.stock_location} onChange={e => setTx(p => ({ ...p, stock_location: e.target.value as StockLocation | '' }))}>
+                              <option value="">— Select location —</option>
+                              {(Object.entries(STOCK_LOCATION_LABEL) as [StockLocation, string][]).map(([v, l]) => (
+                                <option key={v} value={v}>{l}</option>
+                              ))}
+                            </select>
+                          </Field>
+                        </div>
+                      </>
+                    )}
                   </div>
                 </div>
               </>
+            )}
+            {tx.type === 'stock_in' && (user?.business_id === 'wellprint' || user?.business_id === 'tcchemical') && (
+              <Field label="Stock Location">
+                <select className="input" value={tx.stock_location} onChange={e => setTx(p => ({ ...p, stock_location: e.target.value as StockLocation | '' }))}>
+                  <option value="">— Select location —</option>
+                  {(Object.entries(STOCK_LOCATION_LABEL) as [StockLocation, string][]).map(([v, l]) => (
+                    <option key={v} value={v}>{l}</option>
+                  ))}
+                </select>
+              </Field>
             )}
           </form>
         </Modal>

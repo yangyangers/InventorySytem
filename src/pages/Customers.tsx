@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Plus, Edit2, Trash2, Users, Mail, Phone, MapPin, Receipt, Calendar, ShoppingBag, Package, ChevronRight, Hash } from 'lucide-react'
 import { sb } from '@/lib/supabase'
 import { useAuth } from '@/store/auth'
-import { Customer, Transaction } from '@/types'
+import { Customer, Transaction, PAYMENT_METHOD_LABEL, STOCK_LOCATION_LABEL, PaymentMethod, StockLocation } from '@/types'
 import { Modal, Alert, Field, Confirm } from '@/components/ui'
 import { useToast } from '@/components/ui/Toast'
 
@@ -14,6 +14,10 @@ interface PurchaseGroup {
   checkedOutAt: string // created_at — accurate checkout timestamp
   items: Transaction[]
   total: number
+  amountPaid: number | null   // null = no partial payment recorded
+  paymentMethod: string | null
+  paymentReference: string | null
+  stockLocation: string | null
 }
 
 export default function Customers() {
@@ -107,13 +111,25 @@ export default function Customers() {
         const dateRaw = sorted[0].date_of_sale || sorted[0].created_at
         const checkedOutAt = sorted[0].created_at
         const total = sorted.reduce((s, t) => s + ((t.products as any)?.selling_price ?? 0) * t.quantity, 0)
-        return { refNumber, date: dateRaw, checkedOutAt, items: sorted, total }
+        // amount_paid is per-group (stored on each row but same value) — take first non-null
+        const amountPaid = sorted.find(t => t.amount_paid !== null && t.amount_paid !== undefined)?.amount_paid ?? null
+        const paymentMethod = sorted.find(t => t.payment_method)?.payment_method ?? null
+        const paymentReference = sorted.find(t => t.payment_reference)?.payment_reference ?? null
+        const stockLocation = sorted.find(t => t.stock_location)?.stock_location ?? null
+        return { refNumber, date: dateRaw, checkedOutAt, items: sorted, total, amountPaid, paymentMethod, paymentReference, stockLocation }
       })
       .sort((a, b) => b.date.localeCompare(a.date))
   }
 
   const groups = buildGroups(sales)
   const grandTotal = groups.reduce((s, g) => s + g.total, 0)
+  const isWellprintOrTC = user?.business_id === 'wellprint' || user?.business_id === 'tcchemical'
+  const totalOutstanding = isWellprintOrTC
+    ? groups.reduce((s, g) => {
+        if (g.amountPaid !== null && g.amountPaid < g.total) return s + Math.max(0, g.total - g.amountPaid)
+        return s
+      }, 0)
+    : 0
 
   function fmtDate(iso: string) {
     return new Date(iso).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' })
@@ -246,7 +262,12 @@ export default function Customers() {
                   <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--c-text3)' }}>
                     {groups.length} transaction{groups.length !== 1 ? 's' : ''}
                   </span>
-                  <span style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--teal)' }}>{money(grandTotal)}</span>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 1 }}>
+                    <span style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--teal)' }}>{money(grandTotal)}</span>
+                    {isWellprintOrTC && totalOutstanding > 0 && (
+                      <span style={{ fontSize: 10.5, fontWeight: 700, color: '#d97706' }}>⚠ {money(totalOutstanding)} due</span>
+                    )}
+                  </div>
                 </div>
 
                 {/* List */}
@@ -282,8 +303,20 @@ export default function Customers() {
                           <Hash size={10} style={{ color: 'var(--c-text4)', flexShrink: 0 }} />
                           <span style={{ fontFamily: 'var(--mono)', fontSize: 10.5, color: 'var(--c-text4)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{g.refNumber}</span>
                         </div>
-                        {/* Amount */}
-                        <p style={{ fontWeight: 900, fontSize: 14, color: isActive ? 'var(--teal)' : 'var(--ink)', letterSpacing: '-.01em' }}>{money(g.total)}</p>
+                        {/* Amount + outstanding */}
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 4 }}>
+                          <p style={{ fontWeight: 900, fontSize: 14, color: isActive ? 'var(--teal)' : 'var(--ink)', letterSpacing: '-.01em' }}>{money(g.total)}</p>
+                          {isWellprintOrTC && g.amountPaid !== null && g.amountPaid < g.total && (
+                            <span style={{ fontSize: 9.5, fontWeight: 800, background: '#fef3c7', color: '#92400e', borderRadius: 5, padding: '2px 6px', border: '1px solid #fbbf24' }}>
+                              ⚠ {money(g.total - g.amountPaid)} due
+                            </span>
+                          )}
+                          {isWellprintOrTC && g.amountPaid !== null && g.amountPaid >= g.total && (
+                            <span style={{ fontSize: 9.5, fontWeight: 800, background: '#dcfce7', color: '#166534', borderRadius: 5, padding: '2px 6px', border: '1px solid #86efac' }}>
+                              ✓ Paid
+                            </span>
+                          )}
+                        </div>
                       </button>
                     )
                   })}
@@ -294,23 +327,51 @@ export default function Customers() {
               {activeGroup ? (
                 <div style={{ display: 'flex', flexDirection: 'column', borderRadius: 14, border: '1px solid var(--border)', overflow: 'hidden', background: 'var(--c-white)' }}>
                   {/* Receipt header */}
-                  <div style={{ padding: '14px 18px', background: 'var(--bg)', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <div style={{ width: 36, height: 36, borderRadius: 10, background: 'var(--c-teal-dim)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                        <Receipt size={16} style={{ color: 'var(--teal)' }} />
-                      </div>
-                      <div>
-                        <p style={{ fontWeight: 800, fontSize: 13.5, color: 'var(--ink)' }}>{fmtDateTime(activeGroup.checkedOutAt)}</p>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 2 }}>
-                          <Hash size={10} style={{ color: 'var(--c-text4)' }} />
-                          <code style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--c-text4)' }}>{activeGroup.refNumber}</code>
+                  <div style={{ padding: '14px 18px', background: 'var(--bg)', borderBottom: '1px solid var(--border)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <div style={{ width: 36, height: 36, borderRadius: 10, background: 'var(--c-teal-dim)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                          <Receipt size={16} style={{ color: 'var(--teal)' }} />
+                        </div>
+                        <div>
+                          <p style={{ fontWeight: 800, fontSize: 13.5, color: 'var(--ink)' }}>{fmtDateTime(activeGroup.checkedOutAt)}</p>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 2 }}>
+                            <Hash size={10} style={{ color: 'var(--c-text4)' }} />
+                            <code style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--c-text4)' }}>{activeGroup.refNumber}</code>
+                          </div>
                         </div>
                       </div>
+                      <div style={{ textAlign: 'right' }}>
+                        <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--c-text3)', textTransform: 'uppercase', letterSpacing: '.06em' }}>Order Total</p>
+                        <p style={{ fontSize: 20, fontWeight: 900, color: 'var(--teal)', letterSpacing: '-.02em' }}>{money(activeGroup.total)}</p>
+                      </div>
                     </div>
-                    <div style={{ textAlign: 'right' }}>
-                      <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--c-text3)', textTransform: 'uppercase', letterSpacing: '.06em' }}>Order Total</p>
-                      <p style={{ fontSize: 20, fontWeight: 900, color: 'var(--teal)', letterSpacing: '-.02em' }}>{money(activeGroup.total)}</p>
-                    </div>
+                    {/* WellPrint / TC Chemical: payment details + outstanding */}
+                    {isWellprintOrTC && (activeGroup.paymentMethod || activeGroup.stockLocation || activeGroup.amountPaid !== null) && (
+                      <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px dashed var(--border)', display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                        {activeGroup.paymentMethod && (
+                          <span style={{ fontSize: 11.5, fontWeight: 700, background: 'var(--c-teal-dim)', color: 'var(--teal)', borderRadius: 6, padding: '3px 9px' }}>
+                            💳 {PAYMENT_METHOD_LABEL[activeGroup.paymentMethod as PaymentMethod]}
+                            {activeGroup.paymentReference ? ` · ${activeGroup.paymentReference}` : ''}
+                          </span>
+                        )}
+                        {activeGroup.stockLocation && (
+                          <span style={{ fontSize: 11.5, fontWeight: 700, background: 'var(--bg)', color: 'var(--c-text2)', borderRadius: 6, padding: '3px 9px', border: '1px solid var(--border)' }}>
+                            📦 {STOCK_LOCATION_LABEL[activeGroup.stockLocation as StockLocation]}
+                          </span>
+                        )}
+                        {activeGroup.amountPaid !== null && (
+                          <span style={{ fontSize: 11.5, fontWeight: 700, background: '#dcfce7', color: '#166534', borderRadius: 6, padding: '3px 9px' }}>
+                            Paid: {money(activeGroup.amountPaid)}
+                          </span>
+                        )}
+                        {activeGroup.amountPaid !== null && activeGroup.amountPaid < activeGroup.total && (
+                          <span style={{ fontSize: 11.5, fontWeight: 800, background: '#fef3c7', color: '#92400e', borderRadius: 6, padding: '3px 9px', border: '1px solid #fbbf24' }}>
+                            ⚠ Balance: {money(activeGroup.total - activeGroup.amountPaid)}
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   {/* Items list */}
