@@ -18,6 +18,30 @@ import SalesReports from '@/pages/SalesReports'
 import Categories   from '@/pages/Categories'
 import Collectibles from '@/pages/Collectibles'
 
+const BIZ_META: Record<string, { title: string; favicon: string }> = {
+  wellbuild:  { title: 'WellBuild IMS',    favicon: '/wellbuild.svg'  },
+  tcchemical: { title: 'TC Chemical IMS',  favicon: '/tcchemical.svg' },
+  wellprint:  { title: 'WellPrint IMS',    favicon: '/wellprint.svg'  },
+}
+
+function useBizMeta(bizId?: string) {
+  useEffect(() => {
+    const meta = bizId ? BIZ_META[bizId] : null
+    // Update title
+    document.title = meta?.title ?? 'Inventory Management'
+    // Update favicon
+    const href = meta?.favicon ?? '/favicon.svg'
+    let link = document.querySelector<HTMLLinkElement>("link[rel~='icon']")
+    if (!link) {
+      link = document.createElement('link')
+      link.rel = 'icon'
+      document.head.appendChild(link)
+    }
+    link.type = 'image/svg+xml'
+    link.href = href
+  }, [bizId])
+}
+
 function Guard({ children, admin = false }: { children: React.ReactNode; admin?: boolean }) {
   const { user, ready } = useAuth()
   if (!ready) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', background: 'var(--bg, #f3f4f6)' }}><div style={{ width: 36, height: 36, border: '3px solid #e5e7eb', borderTop: '3px solid #6366f1', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} /><style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style></div>
@@ -31,6 +55,9 @@ export default function App() {
 
   // Subscribe to Supabase Auth state changes once on mount
   useEffect(() => init(), [])
+
+  // Dynamically set favicon + page title based on logged-in business
+  useBizMeta(user?.business_id)
 
   if (!ready) return <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', background: 'var(--bg, #f3f4f6)' }}><div style={{ width: 36, height: 36, border: '3px solid #e5e7eb', borderTop: '3px solid #6366f1', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} /><style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style></div>   // show spinner, not blank
 

@@ -88,7 +88,7 @@ export default function Inventory() {
 
   const [modal, setModal]       = useState<'add'|'edit'|null>(null)
   const [txModal, setTxModal]   = useState(false)
-  const [delItem, setDelItem]   = useState<Product|null>(null)
+  const [deleteItem, setDeleteItem] = useState<Product|null>(null)
   const [selected, setSelected] = useState<Product|null>(null)
   const [form, setForm]         = useState({ ...BLANK })
   const [tx, setTx]             = useState({ ...BLANK_TX })
@@ -224,7 +224,7 @@ export default function Inventory() {
     setTx({ ...BLANK_TX, voucher_number: genVoucherNumber(), reference_number: '' })
     setErr(''); setTxModal(true)
   }
-  function closeAll() { setModal(null); setTxModal(false); setDelItem(null); setSelected(null); setErr(''); setOk(''); setSkuIsExisting(false) }
+  function closeAll() { setModal(null); setTxModal(false); setSelected(null); setErr(''); setOk(''); setSkuIsExisting(false) }
 
   // Debounce ref — prevents firing a DB lookup on every single keystroke
   const skuDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -336,10 +336,14 @@ export default function Inventory() {
     } finally { setSaving(false) }
   }
 
-  async function archiveProd() {
-    if (!delItem) return
-    await sb.from('products').update({ is_active: false }).eq('id', delItem.id)
-    closeAll(); loadRows()
+
+  async function deleteProd() {
+    if (!deleteItem) return
+    // Delete all transactions for this product first, then the product
+    await sb.from('transactions').delete().eq('product_id', deleteItem.id)
+    await sb.from('products').delete().eq('id', deleteItem.id)
+    setDeleteItem(null); loadRows()
+    toast.success('Product deleted', `"${deleteItem.name}" and its transaction history have been permanently removed.`)
   }
 
   const pages = Math.ceil(total / PER)
@@ -462,7 +466,7 @@ export default function Inventory() {
                             <Edit2 size={14} />
                           </button>
                           {user?.role === 'admin' && (
-                            <button className="btn-icon danger" title="Archive" onClick={() => setDelItem(p)}>
+                            <button className="btn-icon danger" title="Delete Product" onClick={() => setDeleteItem(p)}>
                               <Trash2 size={14} />
                             </button>
                           )}
@@ -771,15 +775,33 @@ export default function Inventory() {
         </Modal>
       )}
 
-      {/* Archive confirm */}
-      {delItem && (
-        <Confirm
-          title="Archive Product?"
-          msg={`"${delItem.name}" will be hidden from inventory. All transaction history will be kept.`}
-          confirmLabel="Archive"
-          onYes={archiveProd}
-          onNo={closeAll}
-        />
+
+      {/* Delete confirm */}
+      {deleteItem && (
+        <Modal
+          title="Delete Product?"
+          onClose={() => setDeleteItem(null)}
+          width={400}
+          icon={<Trash2 size={18} />}
+          iconBg="#fee2e2"
+          iconColor="#dc2626"
+          footer={
+            <>
+              <button className="btn btn-secondary" onClick={() => setDeleteItem(null)}>Cancel</button>
+              <button
+                className="btn"
+                onClick={deleteProd}
+                style={{ background: '#dc2626', color: '#fff', border: 'none' }}
+              >
+                Delete
+              </button>
+            </>
+          }
+        >
+          <p style={{ fontSize: 13.5, color: 'var(--c-text2)', lineHeight: 1.6 }}>
+            Delete <b>"{deleteItem.name}"</b>? This will permanently remove the product and all its transaction history. This cannot be undone.
+          </p>
+        </Modal>
       )}
     </div>
   )
