@@ -65,7 +65,7 @@ function StockBar({ quantity, reorderLevel }: { quantity: number; reorderLevel: 
 }
 // ─────────────────────────────────────────────────────────────────────────────
 
-const BLANK = { sku:'', name:'', description:'', category_id:'', sub_category_id:'', supplier_id:'', unit:'pcs', quantity:0, reorder_level:10, cost_price:0, selling_price:0 }
+const BLANK = { sku:'', name:'', description:'', category_id:'', sub_category_id:'', supplier_id:'', unit:'pcs', quantity:'0', reorder_level:'10', cost_price:'0', selling_price:'0' }
 const BLANK_TX = { type: 'stock_in' as 'stock_in'|'stock_out'|'adjustment', qty:1, notes:'', voucher_number:'', reference_number:'', date_of_sale:'', customer_name:'', customer_phone:'', payment_method: '' as PaymentMethod|'', payment_reference:'', amount_paid:'', stock_location:'' as StockLocation|'' }
 
 export default function Inventory() {
@@ -213,8 +213,8 @@ export default function Inventory() {
       sku: p.sku, name: p.name, description: p.description??'',
       category_id: isSubCat ? (catObj?.parent_id ?? '') : catId,
       sub_category_id: isSubCat ? catId : '',
-      supplier_id: p.supplier_id??'', unit: p.unit, quantity: p.quantity,
-      reorder_level: p.reorder_level, cost_price: p.cost_price, selling_price: p.selling_price
+      supplier_id: p.supplier_id??'', unit: p.unit, quantity: String(p.quantity),
+      reorder_level: String(p.reorder_level), cost_price: String(p.cost_price), selling_price: String(p.selling_price)
     })
     setErr(''); setOk(''); setModal('edit')
   }
@@ -230,8 +230,7 @@ export default function Inventory() {
   const skuDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   function f(k: string, v: any) {
-    const nums = ['quantity','reorder_level','cost_price','selling_price']
-    setForm(p => ({ ...p, [k]: nums.includes(k) ? (parseFloat(v)||0) : v }))
+    setForm(p => ({ ...p, [k]: v }))
     // Auto-resolve SKU when the product name changes (add modal only)
     if (k === 'name' && modal === 'add') {
       if (skuDebounceRef.current) clearTimeout(skuDebounceRef.current)
@@ -245,58 +244,66 @@ export default function Inventory() {
 
   async function saveProd(e: React.FormEvent) {
     e.preventDefault(); setSaving(true); setErr(''); setOk('')
+    // Parse numeric string fields before saving
+    const parsedForm = {
+      ...form,
+      quantity: parseFloat(form.quantity) || 0,
+      reorder_level: parseFloat(form.reorder_level) || 0,
+      cost_price: parseFloat(form.cost_price) || 0,
+      selling_price: parseFloat(form.selling_price) || 0,
+    }
     try {
       if (modal === 'add') {
-        if (!form.name.trim()) { setErr('Product name is required.'); return }
+        if (!parsedForm.name.trim()) { setErr('Product name is required.'); return }
 
         // Check if a product with this exact name already exists — if so, just add stock to it
         const { data: existing } = await sb.from('products')
           .select('id, sku, quantity, unit')
           .eq('business_id', user!.business_id)
-          .ilike('name', form.name.trim())
+          .ilike('name', parsedForm.name.trim())
           .eq('is_active', true)
           .limit(1)
           .maybeSingle()
 
         if (existing) {
           // ── Product already exists → add stock to it (Stock In transaction) ──
-          if (form.quantity > 0) {
-            const newQty = existing.quantity + form.quantity
+          if (parsedForm.quantity > 0) {
+            const newQty = existing.quantity + parsedForm.quantity
             const voucherNum = genVoucherNumber()
             await sb.from('products').update({ quantity: newQty, updated_at: new Date().toISOString() }).eq('id', existing.id)
-            await sb.from('transactions').insert({ product_id: existing.id, business_id: user!.business_id, transaction_type: 'stock_in', quantity: form.quantity, voucher_number: voucherNum, reference_number: null, notes: 'Stock added via Add Product (same name matched)', performed_by: user!.id })
-            toast.success('Stock updated!', `${form.quantity} ${existing.unit} added to existing "${form.name}" (SKU: ${existing.sku})`)
+            await sb.from('transactions').insert({ product_id: existing.id, business_id: user!.business_id, transaction_type: 'stock_in', quantity: parsedForm.quantity, voucher_number: voucherNum, reference_number: null, notes: 'Stock added via Add Product (same name matched)', performed_by: user!.id })
+            toast.success('Stock updated!', `${parsedForm.quantity} ${existing.unit} added to existing "${parsedForm.name}" (SKU: ${existing.sku})`)
           } else {
-            toast.success('No quantity added.', `"${form.name}" already exists — enter a quantity to add stock.`)
+            toast.success('No quantity added.', `"${parsedForm.name}" already exists — enter a quantity to add stock.`)
           }
           closeAll(); loadRows(); return
         }
 
         // ── New product → generate SKU and insert ──
-        const sku = await resolveSkuForName(form.name)
+        const sku = await resolveSkuForName(parsedForm.name)
         if (!sku) { setErr('Could not generate SKU. Please enter a product name.'); return }
         setForm(p => ({ ...p, sku }))
-        const finalCatId = (user?.business_id === 'wellprint' && form.sub_category_id) ? form.sub_category_id : (form.category_id || null)
+        const finalCatId = (user?.business_id === 'wellprint' && parsedForm.sub_category_id) ? parsedForm.sub_category_id : (parsedForm.category_id || null)
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        const { sub_category_id: _sc1, ...formClean1 } = form
-        const payload = { ...formClean1, sku, business_id: user!.business_id, is_active:true, category_id: finalCatId, supplier_id: form.supplier_id||null, updated_at: new Date().toISOString() }
+        const { sub_category_id: _sc1, ...formClean1 } = parsedForm
+        const payload = { ...formClean1, sku, business_id: user!.business_id, is_active:true, category_id: finalCatId, supplier_id: parsedForm.supplier_id||null, updated_at: new Date().toISOString() }
         const { data: created, error } = await sb.from('products').insert({ ...payload }).select('id').single()
         if (error) { setErr(error.message); return }
-        if (form.quantity > 0 && created) {
+        if (parsedForm.quantity > 0 && created) {
           const voucherNum = genVoucherNumber()
-          await sb.from('transactions').insert({ product_id: created.id, business_id: user!.business_id, transaction_type: 'stock_in', quantity: form.quantity, voucher_number: voucherNum, reference_number: null, notes: 'Initial stock entry', performed_by: user!.id })
+          await sb.from('transactions').insert({ product_id: created.id, business_id: user!.business_id, transaction_type: 'stock_in', quantity: parsedForm.quantity, voucher_number: voucherNum, reference_number: null, notes: 'Initial stock entry', performed_by: user!.id })
         }
-        toast.success('Product added!', form.name + ' was added to inventory')
+        toast.success('Product added!', parsedForm.name + ' was added to inventory')
 
       } else {
         // ── Edit mode ──
-        const finalCatId = (user?.business_id === 'wellprint' && form.sub_category_id) ? form.sub_category_id : (form.category_id || null)
+        const finalCatId = (user?.business_id === 'wellprint' && parsedForm.sub_category_id) ? parsedForm.sub_category_id : (parsedForm.category_id || null)
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        const { sub_category_id: _sc2, ...formClean2 } = form
-        const payload = { ...formClean2, business_id: user!.business_id, is_active:true, category_id: finalCatId, supplier_id: form.supplier_id||null, updated_at: new Date().toISOString() }
+        const { sub_category_id: _sc2, ...formClean2 } = parsedForm
+        const payload = { ...formClean2, business_id: user!.business_id, is_active:true, category_id: finalCatId, supplier_id: parsedForm.supplier_id||null, updated_at: new Date().toISOString() }
         const { error } = await sb.from('products').update(payload).eq('id', selected!.id)
         if (error) { setErr(error.message); return }
-        toast.success('Product updated!', form.name + ' was saved successfully')
+        toast.success('Product updated!', parsedForm.name + ' was saved successfully')
       }
       closeAll(); loadRows()
     } finally { setSaving(false) }
@@ -608,19 +615,44 @@ export default function Inventory() {
             <div className="grid-2">
               {modal === 'add' && (
                 <Field label="Initial Quantity" hint="A Stock In transaction will be recorded automatically">
-                  <input className="input" type="number" min={0} value={form.quantity} onChange={e => f('quantity', e.target.value)} />
+                  <input
+                    className="input" type="number" min={0}
+                    value={form.quantity}
+                    style={{ color: form.quantity === '0' ? 'var(--c-text3)' : undefined }}
+                    onFocus={e => { if (form.quantity === '0') { f('quantity', ''); e.target.select() } }}
+                    onBlur={() => { if (form.quantity === '' || form.quantity === undefined) f('quantity', '0') }}
+                    onChange={e => f('quantity', e.target.value)}
+                  />
                 </Field>
               )}
               <Field label="Reorder Level" hint="Alert threshold for low stock">
-                <input className="input" type="number" min={0} value={form.reorder_level} onChange={e => f('reorder_level', e.target.value)} />
+                <input
+                  className="input" type="number" min={0}
+                  value={form.reorder_level}
+                  onChange={e => f('reorder_level', e.target.value)}
+                />
               </Field>
             </div>
             <div className="grid-2">
               <Field label="Cost Price (₱)">
-                <input className="input" type="number" min={0} step="0.01" value={form.cost_price} onChange={e => f('cost_price', e.target.value)} />
+                <input
+                  className="input" type="number" min={0} step="0.01"
+                  value={form.cost_price}
+                  style={{ color: form.cost_price === '0' ? 'var(--c-text3)' : undefined }}
+                  onFocus={e => { if (form.cost_price === '0') { f('cost_price', ''); e.target.select() } }}
+                  onBlur={() => { if (form.cost_price === '' || form.cost_price === undefined) f('cost_price', '0') }}
+                  onChange={e => f('cost_price', e.target.value)}
+                />
               </Field>
               <Field label="Selling Price (₱)">
-                <input className="input" type="number" min={0} step="0.01" value={form.selling_price} onChange={e => f('selling_price', e.target.value)} />
+                <input
+                  className="input" type="number" min={0} step="0.01"
+                  value={form.selling_price}
+                  style={{ color: form.selling_price === '0' ? 'var(--c-text3)' : undefined }}
+                  onFocus={e => { if (form.selling_price === '0') { f('selling_price', ''); e.target.select() } }}
+                  onBlur={() => { if (form.selling_price === '' || form.selling_price === undefined) f('selling_price', '0') }}
+                  onChange={e => f('selling_price', e.target.value)}
+                />
               </Field>
             </div>
           </form>
