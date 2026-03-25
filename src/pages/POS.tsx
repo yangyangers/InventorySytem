@@ -165,7 +165,6 @@ export default function POS() {
     const safeDiscount    = Math.max(0, Number(discount) || 0)
     const safeSubTotal    = subTotal
     const safeTotal       = Math.max(0, safeSubTotal - safeDiscount)
-    const isWellprintOrTC = user.business_id === 'wellprint' || user.business_id === 'tcchemical'
     const safePaid        = amountPaid !== '' ? Math.max(0, Number(amountPaid) || 0) : safeTotal
     const safeChange      = Math.max(0, safePaid - safeTotal)
     const outstanding     = Math.max(0, safeTotal - safePaid)
@@ -218,7 +217,7 @@ export default function POS() {
             <div><span class="muted">Customer:</span> ${customer.name}</div>
             ${customer.phone ? `<div><span class="muted">Phone:</span> ${customer.phone}</div>` : ''}
             <div><span class="muted">Cashier:</span> ${cashier}</div>
-            ${isWellprintOrTC && slLabel ? `<div><span class="muted">Location:</span> ${slLabel}</div>` : ''}
+            ${slLabel ? `<div><span class="muted">Location:</span> ${slLabel}</div>` : ''}
           </div>
           <div class="hr"></div>
           <table>
@@ -283,7 +282,6 @@ export default function POS() {
       }
 
       // Insert all stock_out transactions in one call
-      const isWellprintOrTC = user.business_id === 'wellprint' || user.business_id === 'tcchemical'
       const txPayload = cart.map(r => ({
         product_id: r.product_id,
         business_id: user.business_id,
@@ -296,10 +294,10 @@ export default function POS() {
         date_of_sale: dateOfSale,
         customer_name: customer.name,
         customer_phone: customer.phone || null,
-        payment_method: isWellprintOrTC ? (paymentMethod || null) : null,
-        payment_reference: isWellprintOrTC ? (paymentReference.trim() || null) : null,
-        amount_paid: isWellprintOrTC ? (amountPaid !== '' ? Number(amountPaid) : null) : null,
-        stock_location: isWellprintOrTC ? (stockLocation || null) : null,
+        payment_method: paymentMethod || null,
+        payment_reference: paymentReference.trim() || null,
+        amount_paid: amountPaid !== '' ? Number(amountPaid) : null,
+        stock_location: stockLocation || null,
       }))
       const { error: txErr } = await sb.from('transactions').insert(txPayload)
       if (txErr) { setErr(txErr.message); return }
@@ -549,8 +547,7 @@ export default function POS() {
               </div>
             )}
 
-            {(user?.business_id === 'wellprint' || user?.business_id === 'tcchemical') && (
-              <div style={{ borderTop: '1px solid var(--border)', paddingTop: 10, marginTop: 2 }}>
+            <div style={{ borderTop: '1px solid var(--border)', paddingTop: 10, marginTop: 2 }}>
                 <p style={{ fontSize: 11, fontWeight: 700, color: 'var(--c-text3)', letterSpacing: '.07em', textTransform: 'uppercase', marginBottom: 8 }}>Payment Details</p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   <Field label="Payment Method">
@@ -576,7 +573,6 @@ export default function POS() {
                   </Field>
                 </div>
               </div>
-            )}
 
             <button className="btn btn-primary" onClick={checkout} disabled={saving || loading} style={{ width: '100%', marginTop: 4 }}>
               {saving ? 'Checking out…' : 'Checkout'}

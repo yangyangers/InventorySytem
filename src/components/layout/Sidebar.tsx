@@ -148,9 +148,8 @@ export default function Sidebar({ open, onClose }: Props) {
           </NavLink>
         ))}
 
-        {/* Collectibles — only for WellPrint and TC Chemical */}
-        {(user.business_id === 'wellprint' || user.business_id === 'tcchemical') && (
-          <NavLink to="/collectibles" className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}>
+        {/* Collectibles — available for all businesses */}
+        <NavLink to="/collectibles" className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}>
             {({ isActive }) => (
               <>
                 <div className="nav-icon-wrap" style={{
@@ -166,7 +165,6 @@ export default function Sidebar({ open, onClose }: Props) {
               </>
             )}
           </NavLink>
-        )}
 
         {user.role === 'admin' && (
           <>

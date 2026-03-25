@@ -6,41 +6,74 @@ No Next.js. No SSR complexity. Just a blazing-fast SPA.
 
 ---
 
+## 🏢 Business Units
+
+This platform serves **three separate businesses**, each fully isolated by `business_id`. Users from one business never see data from another.
+
+| Feature | 🟡 WELLBUILD | 🟢 TC CHEMICAL | 🟦 WELLPRINT |
+|---|---|---|---|
+| **Industry** | Construction & Hardware | Chemical & Laboratory | Printing Materials |
+| **Brand Color** | Gold `#d4a017` | Teal `#5b9490` | Slate `#4e6b65` |
+| **Product Categories** | Construction Materials, Hardware & Fasteners, Plumbing, Electrical, Power Tools | Acids & Bases, Solvents, Safety Equipment, Lab Consumables | Inks & Toners, Paper & Media, Printing Chemicals, Equipment Parts |
+| **Unit Types** | Standard + `cum`, `cubic meter` | Standard units | Standard + `sq ft`, `sq m` |
+| **POS — Payment Method** | ✅ Cash, QR, Maya, GCash, Card | ✅ Cash, QR, Maya, GCash, Card | ✅ Cash, QR, Maya, GCash, Card |
+| **POS — Stock Location** | ✅ Production / Store | ✅ Production / Store | ✅ Production / Store |
+| **Collectibles Page** | ✅ Outstanding balance tracking | ✅ Outstanding balance tracking | ✅ Outstanding balance tracking |
+| **Receipt — Location Field** | ✅ Shown on printed receipt | ✅ Shown on printed receipt | ✅ Shown on printed receipt |
+| **Admin Username** | `admin.wellbuild` | `admin.tcchemical` | `admin.wellprint` |
+
+> All three businesses share the same full feature set, including POS payment method capture, stock location tracking, and the Collectibles module for outstanding customer balances.
+
+---
+
 ## 🗂️ Project Structure
 
 ```
 ims-vite/
 ├── src/
 │   ├── pages/               ← All page components
-│   │   ├── LoginPage.tsx    ← Username login (split panel)
-│   │   ├── DashboardPage.tsx
-│   │   ├── InventoryPage.tsx
-│   │   ├── TransactionsPage.tsx
-│   │   ├── SuppliersPage.tsx
-│   │   ├── ProfilePage.tsx  ← Profile/Security/Appearance tabs
-│   │   ├── StaffPage.tsx    ← Admin only
-│   │   ├── ReportsPage.tsx  ← Admin only
-│   │   └── CategoriesPage.tsx ← Admin only
+│   │   ├── Login.tsx        ← Username login (split panel)
+│   │   ├── Dashboard.tsx
+│   │   ├── Inventory.tsx
+│   │   ├── Transactions.tsx
+│   │   ├── Suppliers.tsx
+│   │   ├── Profile.tsx      ← Profile/Security/Appearance tabs
+│   │   ├── Staff.tsx        ← Admin only
+│   │   ├── Reports.tsx      ← Admin only
+│   │   ├── SalesReports.tsx ← Admin only
+│   │   ├── Categories.tsx   ← Admin only
+│   │   ├── POS.tsx          ← Point of Sale
+│   │   ├── Customers.tsx
+│   │   └── Collectibles.tsx ← TC Chemical & WellPrint only
 │   ├── components/
 │   │   ├── layout/
-│   │   │   ├── DashboardLayout.tsx
+│   │   │   ├── Shell.tsx
 │   │   │   ├── Sidebar.tsx
 │   │   │   └── Topbar.tsx
 │   │   └── ui/
-│   │       └── Modal.tsx
+│   │       ├── index.tsx
+│   │       ├── CommandPalette.tsx
+│   │       └── Toast.tsx
 │   ├── store/
-│   │   └── auth.ts          ← Zustand store (session in localStorage)
+│   │   ├── auth.ts          ← Zustand store (session in localStorage)
+│   │   └── theme.ts
 │   ├── lib/
 │   │   ├── supabase.ts      ← Supabase client
+│   │   ├── logos.ts         ← Business logo map
 │   │   └── utils.ts         ← Helpers
-│   ├── types/index.ts       ← All TypeScript types
+│   ├── types/index.ts       ← All TypeScript types + BIZ config
 │   ├── App.tsx              ← Router setup
 │   ├── main.tsx             ← Entry point
 │   └── index.css            ← Global styles (dark industrial theme)
 ├── supabase/
-│   └── schema.sql           ← Full DB schema + RLS + seeds
+│   ├── schema.sql           ← Full DB schema + RLS + seeds
+│   ├── migrations/          ← Incremental SQL migrations
+│   └── functions/           ← Edge functions (staff management, email)
 ├── scripts/
-│   └── seed-admin.js        ← Generate bcrypt hashes for admins
+│   ├── seed-admin.js        ← Generate bcrypt hashes for admins
+│   └── add-voucher-columns.sql
+├── public/
+│   └── logos/               ← SVG logos for each business
 ├── .env.example
 ├── vite.config.ts
 └── vercel.json              ← Vercel SPA config
@@ -85,7 +118,7 @@ npm run dev
 # → http://localhost:5173
 ```
 
-Login with: `@admin.wellbuild` / `Admin@123456` (or whatever password you used)
+Login with: `admin.wellbuild` / `Admin@123456` (or whatever password you used)
 
 ---
 
@@ -124,6 +157,9 @@ The `vercel.json` already handles SPA routing so all page refreshes work.
 | Staff Management | ✅ | ❌ |
 | Reports & Analytics | ✅ | ❌ |
 | Categories | ✅ | ❌ |
+| POS | ✅ | ✅ |
+| Customers | ✅ | ✅ |
+| Collectibles *(TC Chemical & WellPrint only)* | ✅ | ✅ |
 | Profile (own account) | ✅ | ✅ |
 
 ---

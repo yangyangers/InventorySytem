@@ -313,7 +313,6 @@ export default function Inventory() {
       else                               newQty = qty
       const isIn  = tx.type === 'stock_in'
       const isOut = tx.type === 'stock_out'
-      const isWellprintOrTC = user!.business_id === 'wellprint' || user!.business_id === 'tcchemical'
       const { error } = await sb.from('transactions').insert({
         product_id: p.id, business_id: user!.business_id,
         transaction_type: tx.type, quantity: qty,
@@ -324,10 +323,10 @@ export default function Inventory() {
         date_of_sale: isOut ? (tx.date_of_sale||null) : null,
         customer_name: isOut ? (tx.customer_name||null) : null,
         customer_phone: isOut ? (tx.customer_phone||null) : null,
-        payment_method: (isOut && isWellprintOrTC) ? (tx.payment_method||null) : null,
-        payment_reference: (isOut && isWellprintOrTC) ? (tx.payment_reference||null) : null,
-        amount_paid: (isOut && isWellprintOrTC) ? (tx.amount_paid !== '' ? Number(tx.amount_paid) : null) : null,
-        stock_location: isWellprintOrTC ? (tx.stock_location||null) : null,
+        payment_method: isOut ? (tx.payment_method||null) : null,
+        payment_reference: isOut ? (tx.payment_reference||null) : null,
+        amount_paid: isOut ? (tx.amount_paid !== '' ? Number(tx.amount_paid) : null) : null,
+        stock_location: tx.stock_location||null,
       })
       if (error) { setErr(error.message); return }
       await sb.from('products').update({ quantity: newQty, updated_at: new Date().toISOString() }).eq('id', p.id)
@@ -727,8 +726,7 @@ export default function Inventory() {
                         <input className="input" placeholder="+63 9XX XXX XXXX" value={tx.customer_phone} onChange={e => setTx(p => ({ ...p, customer_phone: e.target.value }))} />
                       </Field>
                     </div>
-                    {(user?.business_id === 'wellprint' || user?.business_id === 'tcchemical') && (
-                      <>
+                    <>
                         <div className="grid-2">
                           <Field label="Payment Method">
                             <select className="input" value={tx.payment_method} onChange={e => setTx(p => ({ ...p, payment_method: e.target.value as PaymentMethod | '' }))}>
@@ -756,12 +754,11 @@ export default function Inventory() {
                           </Field>
                         </div>
                       </>
-                    )}
                   </div>
                 </div>
               </>
             )}
-            {tx.type === 'stock_in' && (user?.business_id === 'wellprint' || user?.business_id === 'tcchemical') && (
+            {tx.type === 'stock_in' && (
               <Field label="Stock Location">
                 <select className="input" value={tx.stock_location} onChange={e => setTx(p => ({ ...p, stock_location: e.target.value as StockLocation | '' }))}>
                   <option value="">— Select location —</option>

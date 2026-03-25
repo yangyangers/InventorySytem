@@ -104,7 +104,6 @@ export default function SalesReports() {
   const [prods, setProds]       = useState<Product[]>([])
   const [loading, setLoading]   = useState(true)
   const [prevSales, setPrevSales] = useState<SaleRow[]>([])
-  const isWellprintOrTC = user?.business_id === 'wellprint' || user?.business_id === 'tcchemical'
 
   useEffect(() => {
     if (!user) return
@@ -180,23 +179,21 @@ export default function SalesReports() {
   }
   const topCustomers = [...custMap.values()].sort((a, b) => b.revenue - a.revenue).slice(0, 6)
 
-  // Payment method breakdown (wellprint/tcchemical)
+  // Payment method breakdown
   const payMethodMap = new Map<string, { count: number; revenue: number }>()
-  if (isWellprintOrTC) {
-    for (const tx of sales) {
-      const method = tx.payment_method ?? 'unrecorded'
-      const rev = tx.quantity * (tx.products?.selling_price ?? 0)
-      const e = payMethodMap.get(method)
-      if (e) { e.count++; e.revenue += rev }
-      else payMethodMap.set(method, { count: 1, revenue: rev })
-    }
+  for (const tx of sales) {
+    const method = tx.payment_method ?? 'unrecorded'
+    const rev = tx.quantity * (tx.products?.selling_price ?? 0)
+    const e = payMethodMap.get(method)
+    if (e) { e.count++; e.revenue += rev }
+    else payMethodMap.set(method, { count: 1, revenue: rev })
   }
   const payMethods = [...payMethodMap.entries()].sort((a, b) => b[1].revenue - a[1].revenue)
 
-  // Outstanding collectibles summary (wellprint/tcchemical)
+  // Outstanding collectibles summary
   const [outstandingTotal, setOutstandingTotal] = useState(0)
   useEffect(() => {
-    if (!user || !isWellprintOrTC) return
+    if (!user) return
     sb.from('transactions').select('reference_number, amount_paid, quantity, products(selling_price)')
       .eq('business_id', user.business_id).eq('transaction_type', 'stock_out')
       .not('reference_number', 'is', null)
@@ -217,7 +214,7 @@ export default function SalesReports() {
         }
         setOutstandingTotal(outs)
       })
-  }, [user, isWellprintOrTC])
+  }, [user])
 
   const GrowthBadge = ({ val }: { val: string | null }) => {
     if (!val) return null
@@ -288,11 +285,9 @@ export default function SalesReports() {
         <StatCard label="Avg Order Value" value={loading ? '—' : money(avgOrderValue)}
           icon={<ShoppingCart size={22} />} color="#6366f1"    bg="#eef2ff"             accentColor="#6366f1"
           sub="per transaction" />
-        {isWellprintOrTC && (
-          <StatCard label="Outstanding"   value={loading ? '—' : money(outstandingTotal)}
+        <StatCard label="Outstanding"   value={loading ? '—' : money(outstandingTotal)}
             icon={<AlertCircle size={22} />} color="#d97706"   bg="#fef3c7"             accentColor="#d97706"
             sub="uncollected balance" />
-        )}
       </div>
 
       {/* Chart + Top Products */}
@@ -395,7 +390,7 @@ export default function SalesReports() {
       </div>
 
       {/* Row 3: Top Customers + Payment Methods */}
-      <div style={{ display: 'grid', gridTemplateColumns: isWellprintOrTC ? '1fr 1fr' : '1fr', gap: 18, marginBottom: 20 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18, marginBottom: 20 }}>
 
         {/* Top Customers */}
         <div className="card" style={{ padding: 24 }}>
@@ -441,9 +436,8 @@ export default function SalesReports() {
           }
         </div>
 
-        {/* Payment Method Breakdown — WellPrint / TC Chemical only */}
-        {isWellprintOrTC && (
-          <div className="card" style={{ padding: 24 }}>
+        {/* Payment Method Breakdown */}
+        <div className="card" style={{ padding: 24 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 18 }}>
               <div style={{ width: 34, height: 34, borderRadius: 9, background: '#eff3f2', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <CreditCard size={16} style={{ color: '#4e6b65' }} />
@@ -480,7 +474,6 @@ export default function SalesReports() {
                 </div>
             }
           </div>
-        )}
       </div>
 
       {/* Sales transaction table */}
@@ -521,17 +514,17 @@ export default function SalesReports() {
                 <th>Revenue</th>
                 <th>Cost</th>
                 <th>Profit</th>
-                {isWellprintOrTC && <th>Payment</th>}
-                {isWellprintOrTC && <th>Outstanding</th>}
+                <th>Payment</th>
+                <th>Outstanding</th>
                 <th>By</th>
               </tr>
             </thead>
             <tbody>
               {loading
-                ? <SkeletonRows cols={isWellprintOrTC ? 12 : 10} rows={6} />
+                ? <SkeletonRows cols={12} rows={6} />
                 : sales.length === 0
                   ? (
-                    <tr><td colSpan={isWellprintOrTC ? 12 : 10}>
+                    <tr><td colSpan={12}>
                       <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--c-text4)' }}>
                         <ShoppingCart size={36} style={{ opacity: 0.2, marginBottom: 10 }} />
                         <p style={{ fontSize: 14, fontWeight: 600 }}>No sales this period</p>
@@ -545,7 +538,7 @@ export default function SalesReports() {
                     const rev = tx.quantity * sp
                     const cst = tx.quantity * cp
                     const pft = rev - cst
-                    const outstanding = isWellprintOrTC && tx.amount_paid !== null ? Math.max(0, rev - (tx.amount_paid ?? 0)) : null
+                    const outstanding = tx.amount_paid !== null ? Math.max(0, rev - (tx.amount_paid ?? 0)) : null
                     return (
                       <tr key={tx.id}>
                         <td>
@@ -573,8 +566,7 @@ export default function SalesReports() {
                         <td style={{ fontWeight: 800, color: 'var(--green)', fontSize: 14 }}>{moneyFull(rev)}</td>
                         <td style={{ fontSize: 13, color: 'var(--c-text2)' }}>{moneyFull(cst)}</td>
                         <td style={{ fontWeight: 700, color: pft >= 0 ? 'var(--green)' : 'var(--red)', fontSize: 13 }}>{moneyFull(pft)}</td>
-                        {isWellprintOrTC && (
-                          <td style={{ fontSize: 12.5 }}>
+                        <td style={{ fontSize: 12.5 }}>
                             {tx.payment_method
                               ? <span style={{ fontSize: 11.5, fontWeight: 700, background: 'var(--c-teal-dim)', color: 'var(--teal)', borderRadius: 5, padding: '2px 7px', display: 'inline-block' }}>
                                   {PAYMENT_METHOD_LABEL[tx.payment_method as PaymentMethod]}
@@ -582,16 +574,13 @@ export default function SalesReports() {
                               : <span style={{ color: 'var(--c-text4)' }}>—</span>}
                             {tx.payment_reference && <p style={{ fontSize: 10.5, color: 'var(--c-text4)', fontFamily: 'var(--mono)', marginTop: 2 }}>{tx.payment_reference}</p>}
                           </td>
-                        )}
-                        {isWellprintOrTC && (
-                          <td>
+                        <td>
                             {outstanding !== null && outstanding > 0
                               ? <span style={{ fontSize: 13, fontWeight: 900, color: '#d97706' }}>{moneyFull(outstanding)}</span>
                               : tx.amount_paid !== null
                                 ? <span style={{ fontSize: 11.5, fontWeight: 700, color: '#16a34a' }}>✓ Paid</span>
                                 : <span style={{ color: 'var(--c-text4)' }}>—</span>}
                           </td>
-                        )}
                         <td style={{ fontSize: 13, color: 'var(--c-text3)' }}>{(tx as any).users?.full_name ?? '—'}</td>
                       </tr>
                     )

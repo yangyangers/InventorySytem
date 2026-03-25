@@ -123,13 +123,10 @@ export default function Customers() {
 
   const groups = buildGroups(sales)
   const grandTotal = groups.reduce((s, g) => s + g.total, 0)
-  const isWellprintOrTC = user?.business_id === 'wellprint' || user?.business_id === 'tcchemical'
-  const totalOutstanding = isWellprintOrTC
-    ? groups.reduce((s, g) => {
-        if (g.amountPaid !== null && g.amountPaid < g.total) return s + Math.max(0, g.total - g.amountPaid)
-        return s
-      }, 0)
-    : 0
+  const totalOutstanding = groups.reduce((s, g) => {
+    if (g.amountPaid !== null && g.amountPaid < g.total) return s + Math.max(0, g.total - g.amountPaid)
+    return s
+  }, 0)
 
   function fmtDate(iso: string) {
     return new Date(iso).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' })
@@ -264,7 +261,7 @@ export default function Customers() {
                   </span>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 1 }}>
                     <span style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--teal)' }}>{money(grandTotal)}</span>
-                    {isWellprintOrTC && totalOutstanding > 0 && (
+                    {totalOutstanding > 0 && (
                       <span style={{ fontSize: 10.5, fontWeight: 700, color: '#d97706' }}>⚠ {money(totalOutstanding)} due</span>
                     )}
                   </div>
@@ -306,12 +303,12 @@ export default function Customers() {
                         {/* Amount + outstanding */}
                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 4 }}>
                           <p style={{ fontWeight: 900, fontSize: 14, color: isActive ? 'var(--teal)' : 'var(--ink)', letterSpacing: '-.01em' }}>{money(g.total)}</p>
-                          {isWellprintOrTC && g.amountPaid !== null && g.amountPaid < g.total && (
+                          {g.amountPaid !== null && g.amountPaid < g.total && (
                             <span style={{ fontSize: 9.5, fontWeight: 800, background: '#fef3c7', color: '#92400e', borderRadius: 5, padding: '2px 6px', border: '1px solid #fbbf24' }}>
                               ⚠ {money(g.total - g.amountPaid)} due
                             </span>
                           )}
-                          {isWellprintOrTC && g.amountPaid !== null && g.amountPaid >= g.total && (
+                          {g.amountPaid !== null && g.amountPaid >= g.total && (
                             <span style={{ fontSize: 9.5, fontWeight: 800, background: '#dcfce7', color: '#166534', borderRadius: 5, padding: '2px 6px', border: '1px solid #86efac' }}>
                               ✓ Paid
                             </span>
@@ -346,8 +343,8 @@ export default function Customers() {
                         <p style={{ fontSize: 20, fontWeight: 900, color: 'var(--teal)', letterSpacing: '-.02em' }}>{money(activeGroup.total)}</p>
                       </div>
                     </div>
-                    {/* WellPrint / TC Chemical: payment details + outstanding */}
-                    {isWellprintOrTC && (activeGroup.paymentMethod || activeGroup.stockLocation || activeGroup.amountPaid !== null) && (
+                    {/* Payment details + outstanding */}
+                    {(activeGroup.paymentMethod || activeGroup.stockLocation || activeGroup.amountPaid !== null) && (
                       <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px dashed var(--border)', display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                         {activeGroup.paymentMethod && (
                           <span style={{ fontSize: 11.5, fontWeight: 700, background: 'var(--c-teal-dim)', color: 'var(--teal)', borderRadius: 6, padding: '3px 9px' }}>

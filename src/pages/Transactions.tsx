@@ -36,9 +36,8 @@ export function Transactions() {
     setRows(fetched)
     setTotal(count ?? 0)
 
-    // Build ref→balance map for wellprint / tcchemical
-    const isWP = user.business_id === 'wellprint' || user.business_id === 'tcchemical'
-    if (isWP) {
+    // Build ref→balance map for all businesses
+    {
       // Collect unique reference numbers from this page that are stock_out
       const refs = [...new Set(
         fetched
@@ -81,9 +80,8 @@ export function Transactions() {
   useEffect(() => { load() }, [load])
 
   const showSaleCols = !type || type === 'stock_out'
-  const isWellprintOrTC = user?.business_id === 'wellprint' || user?.business_id === 'tcchemical'
-  const showExtraCols = showSaleCols && isWellprintOrTC
-  const colSpan = showSaleCols ? (showExtraCols ? 12 : 9) : (showExtraCols ? 8 : 6)
+  const showExtraCols = showSaleCols
+  const colSpan = showSaleCols ? 12 : 8
 
   function money(n: number) {
     return new Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' }).format(n)
@@ -125,7 +123,7 @@ export function Transactions() {
                 {showSaleCols && <th style={{ whiteSpace: 'nowrap' }}><span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><Calendar size={12} />Date of Sale</span></th>}
                 {showSaleCols && <th style={{ whiteSpace: 'nowrap' }}><span style={{ display: 'flex', alignItems: 'center', gap: 5 }}><User size={12} />Customer</span></th>}
                 {showExtraCols && <th style={{ whiteSpace: 'nowrap' }}>Payment</th>}
-                {isWellprintOrTC && <th style={{ whiteSpace: 'nowrap' }}>Location</th>}
+                {showExtraCols && <th style={{ whiteSpace: 'nowrap' }}>Location</th>}
                 {showExtraCols && <th style={{ whiteSpace: 'nowrap' }}>Outstanding</th>}
                 <th>By</th>
                 <th>Notes</th>
@@ -205,7 +203,7 @@ export function Transactions() {
                             : <span style={{ color: 'var(--c-text4)' }}>—</span>}
                         </td>
                       )}
-                      {isWellprintOrTC && (
+                      {showExtraCols && (
                         <td style={{ fontSize: 12.5, color: 'var(--c-text2)' }}>
                           {tx.stock_location
                             ? STOCK_LOCATION_LABEL[tx.stock_location as StockLocation]
