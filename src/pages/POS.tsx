@@ -1,5 +1,6 @@
 // ── POS (Cart-style checkout) ─────────────────────────────────────────────
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { ShoppingCart, Plus, Trash2, Receipt, Printer, RotateCcw } from 'lucide-react'
 import { sb } from '@/lib/supabase'
 import { useAuth } from '@/store/auth'
@@ -46,7 +47,7 @@ export default function POS() {
   const [search, setSearch] = useState('')
   const [pickedId, setPickedId] = useState<string>('')
   const picked = useMemo(() => products.find(p => p.id === pickedId) || null, [products, pickedId])
-  const [pickedQty, setPickedQty] = useState<number>(1)
+  const [pickedQty, setPickedQty] = useState<number | ''>('')
 
   const [cart, setCart] = useState<CartRow[]>([])
 
@@ -60,10 +61,22 @@ export default function POS() {
   const [err, setErr] = useState('')
   const [ok, setOk] = useState('')
 
-  const [receiptOpen, setReceiptOpen] = useState(false)
+  const [checkoutSuccess, setCheckoutSuccess] = useState(false)
+  const [showSuggestions, setShowSuggestions] = useState(false)
+  const [dropdownPos, setDropdownPos] = useState({ top: 0, left: 0, width: 0 })
+  const searchRef = useRef<HTMLInputElement>(null)
 
   const biz = user ? BIZ[user.business_id as BizId] : null
   const logoSrc = user ? BIZ_LOGOS[user.business_id] : ''
+
+  // Close autocomplete on page scroll
+  useEffect(() => {
+    const pageEl = document.querySelector('.page')
+    if (!pageEl) return
+    const handler = () => setShowSuggestions(false)
+    pageEl.addEventListener('scroll', handler, { passive: true })
+    return () => pageEl.removeEventListener('scroll', handler)
+  }, [])
 
   useEffect(() => {
     ;(async () => {
@@ -96,7 +109,7 @@ export default function POS() {
     setErr(''); setOk('')
     if (!picked) { setErr('Please select a product.'); return }
     const qty = Number(pickedQty)
-    if (!qty || qty < 1) { setErr('Quantity must be at least 1.'); return }
+    if (pickedQty === '' || !qty || qty < 1) { setErr('Please enter a quantity of at least 1.'); return }
     if (qty > picked.quantity) { setErr(`Only ${picked.quantity} ${picked.unit} available for ${picked.name}.`); return }
     setCart(prev => {
       const i = prev.findIndex(x => x.product_id === picked.id)
@@ -115,7 +128,7 @@ export default function POS() {
         qty,
       }]
     })
-    setPickedQty(1)
+    setPickedQty('')
   }
 
   function updateQty(product_id: string, qty: number) {
@@ -135,7 +148,7 @@ export default function POS() {
     setDateOfSale(todayISO())
     setSearch('')
     setPickedId('')
-    setPickedQty(1)
+    setPickedQty('')
     setCart([])
     setDiscount(0)
     setPaymentMethod('')
@@ -144,7 +157,6 @@ export default function POS() {
     setStockLocation('')
     setErr('')
     setOk('')
-    setReceiptOpen(false)
   }
 
   function printReceipt() {
@@ -308,10 +320,10 @@ export default function POS() {
       }
 
       setOk('Checkout successful! You can print the receipt now.')
+      setCheckoutSuccess(true)
       // Refresh product list so next sale has updated stock
       const { data: ps } = await sb.from('products').select('*').eq('business_id', user.business_id).eq('is_active', true).order('name')
       setProducts((ps as Product[]) ?? [])
-      setReceiptOpen(true)
     } finally {
       setSaving(false)
     }
@@ -368,12 +380,87 @@ export default function POS() {
             </Field>
           </div>
 
-          <div style={{ borderTop: '1px solid var(--border)', paddingTop: 14, marginTop: 2 }}>
+          <div style={{ borderTop: '1px solid var(--border)', paddingTop: 14, marginTop: 2, overflow: 'visible', position: 'relative', zIndex: 50 }}>
             <p style={{ fontWeight: 800, color: 'var(--ink)', marginBottom: 10 }}>Add item</p>
 
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              <input className="input" style={{ flex: 1, minWidth: 220 }} placeholder="Search product by name or SKU…" value={search} onChange={e => setSearch(e.target.value)} />
-              <select className="input" style={{ minWidth: 260, flex: 1 }} value={pickedId} onChange={e => setPickedId(e.target.value)} disabled={loading}>
+            {/* Search row: autocomplete + dropdown + qty + add */}
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'flex-start', position: 'relative', zIndex: 100 }}>
+              {/* Autocomplete search */}
+              <div style={{ flex: 1, minWidth: 200, position: 'relative' }}>
+                <input
+                  ref={searchRef}
+                  className="input"
+                  style={{ width: '100%' }}
+                  placeholder="Search by name or SKU…"
+                  value={search}
+                  onChange={e => {
+                    setSearch(e.target.value)
+                    setPickedId('')
+                    setShowSuggestions(true)
+                    if (searchRef.current) {
+                      const r = searchRef.current.getBoundingClientRect()
+                      setDropdownPos({ top: r.bottom + 4, left: r.left, width: r.width })
+                    }
+                  }}
+                  onFocus={() => {
+                    if (searchRef.current) {
+                      const r = searchRef.current.getBoundingClientRect()
+                      setDropdownPos({ top: r.bottom + 4, left: r.left, width: r.width })
+                    }
+                    setShowSuggestions(true)
+                  }}
+                  onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+                  autoComplete="off"
+                />
+                {showSuggestions && search.trim() && filteredProducts.length > 0 && createPortal(
+                  <div style={{
+                    position: 'fixed',
+                    top: dropdownPos.top,
+                    left: dropdownPos.left,
+                    width: dropdownPos.width,
+                    zIndex: 99999,
+                    background: 'var(--card)',
+                    border: '1px solid var(--border)',
+                    borderRadius: 10,
+                    boxShadow: '0 8px 32px rgba(0,0,0,.18)',
+                    maxHeight: 240,
+                    overflowY: 'auto',
+                  }}>
+                    {filteredProducts.map(p => (
+                      <div
+                        key={p.id}
+                        onMouseDown={() => {
+                          setPickedId(p.id)
+                          setSearch(p.name)
+                          setShowSuggestions(false)
+                        }}
+                        style={{
+                          padding: '9px 14px', cursor: 'pointer',
+                          borderBottom: '1px solid var(--border)',
+                        }}
+                        onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg)')}
+                        onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                      >
+                        <p style={{ fontWeight: 700, fontSize: 13, color: 'var(--ink)', margin: 0 }}>{p.name}</p>
+                        <p style={{ fontSize: 11.5, color: 'var(--c-text3)', margin: 0 }}>{p.sku} • {p.quantity} {p.unit} left • {money(p.selling_price)}</p>
+                      </div>
+                    ))}
+                  </div>,
+                  document.body
+                )}
+              </div>
+              {/* Dropdown fallback */}
+              <select
+                className="input"
+                style={{ minWidth: 220, flex: 1 }}
+                value={pickedId}
+                onChange={e => {
+                  setPickedId(e.target.value)
+                  const found = products.find(p => p.id === e.target.value)
+                  if (found) setSearch(found.name)
+                }}
+                disabled={loading}
+              >
                 <option value="">— Select product —</option>
                 {filteredProducts.map(p => (
                   <option key={p.id} value={p.id}>
@@ -381,13 +468,13 @@ export default function POS() {
                   </option>
                 ))}
               </select>
-              <input className="input" style={{ width: 110 }} type="number" min={1} value={pickedQty} onChange={e => setPickedQty(parseInt(e.target.value || '1', 10))} />
+              <input className="input" style={{ width: 90 }} type="number" min={1} placeholder="Qty" value={pickedQty} onChange={e => setPickedQty(e.target.value === '' ? '' : Number(e.target.value))} />
               <button className="btn btn-primary" type="button" onClick={addToCart} disabled={!pickedId}>
                 <Plus size={15} /> Add
               </button>
             </div>
 
-            <div style={{ marginTop: 14, overflowX: 'auto' }}>
+            <div style={{ marginTop: 14, overflowX: 'auto', position: 'relative', zIndex: 1 }}>
               <table className="table" style={{ minWidth: 560 }}>
                 <thead>
                   <tr>
@@ -495,69 +582,40 @@ export default function POS() {
               {saving ? 'Checking out…' : 'Checkout'}
             </button>
 
-            <button className="btn btn-secondary" onClick={() => setReceiptOpen(true)} disabled={!ok || cart.length === 0} style={{ width: '100%' }}>
-              <Printer size={15} /> Print Receipt
-            </button>
           </div>
         </div>
       </div>
 
-      {receiptOpen && customer && (
+
+      {checkoutSuccess && customer && (
         <Modal
-          title="Receipt Preview"
-          subtitle="Print this like a POS receipt"
-          onClose={() => setReceiptOpen(false)}
-          width={460}
-          icon={<Receipt size={18} />}
+          title="Purchase Complete!"
+          subtitle="The sale has been recorded successfully."
+          onClose={() => setCheckoutSuccess(false)}
+          width={400}
+          icon={<ShoppingCart size={18} />}
           iconBg="var(--c-teal-dim)"
           iconColor="var(--teal)"
           footer={
             <>
-              <button className="btn btn-secondary" onClick={() => setReceiptOpen(false)}>Close</button>
-              <button className="btn btn-primary" onClick={printReceipt}><Printer size={15} /> Print</button>
+              <button className="btn btn-secondary" onClick={() => setCheckoutSuccess(false)}>Close</button>
+              <button className="btn btn-primary" onClick={() => { setCheckoutSuccess(false); printReceipt() }}>
+                <Printer size={15} /> Print Receipt
+              </button>
             </>
           }
         >
-          <div style={{ border: '1px dashed var(--border)', borderRadius: 12, padding: 14, fontFamily: 'var(--mono)' }}>
-            <div style={{ textAlign: 'center' }}>
-              {logoSrc && <img src={logoSrc} alt="logo" style={{ maxHeight: 54, maxWidth: '85%', objectFit: 'contain', margin: '0 auto 10px', display: 'block' }} />}
-              <p style={{ fontWeight: 900, fontSize: 14 }}>{biz?.name || 'Store'}</p>
-              <p style={{ fontSize: 11.5, color: 'var(--c-text3)' }}>POS Receipt</p>
-            </div>
-            <div style={{ borderTop: '1px dashed var(--border)', margin: '10px 0' }} />
-            <p style={{ fontSize: 11.5 }}><span style={{ color: 'var(--c-text3)' }}>Ref #:</span> <b>{voucher}</b></p>
-            <p style={{ fontSize: 11.5 }}><span style={{ color: 'var(--c-text3)' }}>Date:</span> {new Date(dateOfSale).toLocaleDateString('en-PH', { year:'numeric', month:'short', day:'numeric' })}</p>
-            <p style={{ fontSize: 11.5 }}><span style={{ color: 'var(--c-text3)' }}>Customer:</span> {customer.name}</p>
-            {customer.phone && <p style={{ fontSize: 11.5 }}><span style={{ color: 'var(--c-text3)' }}>Phone:</span> {customer.phone}</p>}
-            <p style={{ fontSize: 11.5 }}><span style={{ color: 'var(--c-text3)' }}>Cashier:</span> {user?.full_name || user?.username}</p>
-
-            <div style={{ borderTop: '1px dashed var(--border)', margin: '10px 0' }} />
-
-            {cart.map(r => (
-              <div key={r.product_id} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, marginBottom: 6 }}>
-                <div style={{ minWidth: 0 }}>
-                  <p style={{ fontWeight: 800, fontSize: 12.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</p>
-                  <p style={{ fontSize: 11, color: 'var(--c-text3)' }}>{r.qty} {r.unit} × {money(r.selling_price || 0)}</p>
-                </div>
-                <p style={{ fontWeight: 900, fontSize: 12.5 }}>{money(r.qty * (r.selling_price || 0))}</p>
-              </div>
-            ))}
-
-            <div style={{ borderTop: '1px dashed var(--border)', margin: '10px 0' }} />
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11.5 }}><span style={{ color: 'var(--c-text3)' }}>Subtotal</span><b>{money(subTotal)}</b></div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11.5 }}><span style={{ color: 'var(--c-text3)' }}>Discount</span><b>-{money(discount || 0)}</b></div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12.5 }}><span style={{ fontWeight: 900 }}>Total</span><span style={{ fontWeight: 900 }}>{money(totalDue)}</span></div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11.5 }}><span style={{ color: 'var(--c-text3)' }}>Amount Paid</span><b>{amountPaid !== '' ? money(Number(amountPaid)) : money(totalDue)}</b></div>
-            {change > 0 && <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11.5 }}><span style={{ color: 'var(--c-text3)' }}>Change</span><b>{money(change)}</b></div>}
-            {amountPaid !== '' && Number(amountPaid) < totalDue && (
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginTop: 4, padding: '5px 8px', borderRadius: 7, background: '#fef3c7', border: '1px solid #fbbf24' }}>
-                <span style={{ fontWeight: 700, color: '#92400e' }}>Remaining Balance</span>
-                <b style={{ color: '#92400e' }}>{money(totalDue - Number(amountPaid))}</b>
-              </div>
-            )}
+          <div style={{ textAlign: 'center', padding: '16px 0' }}>
+            <div style={{ fontSize: 48, marginBottom: 10 }}>🎉</div>
+            <p style={{ fontWeight: 800, fontSize: 16, color: 'var(--ink)', marginBottom: 6 }}>All set!</p>
+            <p style={{ color: 'var(--c-text2)', fontSize: 13.5 }}>
+              Sale recorded for <b>{customer.name}</b>.<br />
+              Total: <b>{money(totalDue)}</b>
+            </p>
           </div>
         </Modal>
       )}
+
     </div>
   )
 }
