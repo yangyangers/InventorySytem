@@ -286,7 +286,7 @@ export default function Inventory() {
         setForm(p => ({ ...p, sku }))
         const finalCatId = (user?.business_id === 'wellprint' && parsedForm.sub_category_id) ? parsedForm.sub_category_id : (parsedForm.category_id || null)
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        const { sub_category_id: _sc1, ...formClean1 } = parsedForm
+        const { sub_category_id: _sc1, initial_location: _il1, ...formClean1 } = parsedForm
         const payload = { ...formClean1, sku, business_id: user!.business_id, is_active:true, category_id: finalCatId, supplier_id: parsedForm.supplier_id||null, updated_at: new Date().toISOString() }
         const { data: created, error } = await sb.from('products').insert({ ...payload }).select('id').single()
         if (error) { setErr(error.message); return }
@@ -304,7 +304,7 @@ export default function Inventory() {
         // ── Edit mode ──
         const finalCatId = (user?.business_id === 'wellprint' && parsedForm.sub_category_id) ? parsedForm.sub_category_id : (parsedForm.category_id || null)
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        const { sub_category_id: _sc2, ...formClean2 } = parsedForm
+        const { sub_category_id: _sc2, initial_location: _il2, ...formClean2 } = parsedForm
         const payload = { ...formClean2, business_id: user!.business_id, is_active:true, category_id: finalCatId, supplier_id: parsedForm.supplier_id||null, updated_at: new Date().toISOString() }
         const { error } = await sb.from('products').update(payload).eq('id', selected!.id)
         if (error) { setErr(error.message); return }
