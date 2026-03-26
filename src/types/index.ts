@@ -30,12 +30,12 @@ export const WELLPRINT_UNITS = [...UNITS, "sq ft", "sq m"]
 export const WELLBUILD_UNITS = [...UNITS, "cum", "cubic meter"]
 
 export type Role = "admin" | "staff"
-export type TxType = "stock_in" | "stock_out" | "adjustment"
+export type TxType = "stock_in" | "stock_out" | "adjustment" | "transfer"
 export type PaymentMethod = "cash" | "qr" | "maya" | "gcash" | "card"
 export type StockLocation = "production" | "store"
 
 export const TX_LABEL: Record<TxType, string> = {
-  stock_in: "Stock In", stock_out: "Stock Out", adjustment: "Adjustment",
+  stock_in: "Stock In", stock_out: "Stock Out", adjustment: "Adjustment", transfer: "Transfer",
 }
 
 export const PAYMENT_METHOD_LABEL: Record<PaymentMethod, string> = {
@@ -62,6 +62,7 @@ export interface Product {
   voucher_number: string | null
   category_id: string | null; supplier_id: string | null
   business_id: BizId; unit: string; quantity: number
+  store_quantity: number; production_quantity: number
   reorder_level: number; cost_price: number; selling_price: number
   is_active: boolean; created_at: string; updated_at: string
   categories?: { name: string } | null
@@ -94,6 +95,7 @@ export interface Transaction {
   payment_method: PaymentMethod | null
   payment_reference: string | null
   amount_paid: number | null
+  discount: number | null
   stock_location: StockLocation | null
   products?: { name: string; sku: string; unit: string; selling_price?: number } | null
   users?: { full_name: string; username: string } | null

@@ -266,16 +266,22 @@ export default function POS() {
       const ids = cart.map(r => r.product_id)
       const { data: latest } = await sb
         .from('products')
-        .select('id, quantity, unit, name')
+        .select('id, quantity, store_quantity, production_quantity, unit, name')
         .eq('business_id', user.business_id)
         .in('id', ids)
 
       const latestMap = new Map<string, any>((latest as any[] || []).map(p => [p.id, p]))
       for (const row of cart) {
         const lp = latestMap.get(row.product_id)
-        const available = Number(lp?.quantity ?? row.maxQty)
+        // Check location-specific stock if a location is chosen
+        const available = stockLocation === 'store'
+          ? Number(lp?.store_quantity ?? lp?.quantity ?? row.maxQty)
+          : stockLocation === 'production'
+          ? Number(lp?.production_quantity ?? 0)
+          : Number(lp?.quantity ?? row.maxQty)
         if (row.qty > available) {
-          setErr(`Not enough stock for ${lp?.name ?? row.name}. Available: ${available} ${lp?.unit ?? row.unit}.`)
+          const locLabel = stockLocation ? ` in ${stockLocation}` : ''
+          setErr(`Not enough stock for ${lp?.name ?? row.name}${locLabel}. Available: ${available} ${lp?.unit ?? row.unit}.`)
           setSaving(false)
           return
         }
@@ -296,22 +302,36 @@ export default function POS() {
         customer_phone: customer.phone || null,
         payment_method: paymentMethod || null,
         payment_reference: paymentReference.trim() || null,
-        amount_paid: amountPaid !== '' ? Number(amountPaid) : null,
+        amount_paid: amountPaid !== '' ? Number(amountPaid) : totalDue,
+        discount: Math.max(0, Number(discount) || 0),
         stock_location: stockLocation || null,
       }))
       const { error: txErr } = await sb.from('transactions').insert(txPayload)
       if (txErr) { setErr(txErr.message); return }
 
-      // Update product quantities
+      // Update product quantities (location-aware)
       for (const row of cart) {
         const lp = latestMap.get(row.product_id)
-        const available = Number(lp?.quantity ?? row.maxQty)
-        const newQty = Math.max(0, available - row.qty)
+        let updatePayload: Record<string, any> = { updated_at: new Date().toISOString() }
+        if (stockLocation === 'store') {
+          const cur = Number(lp?.store_quantity ?? lp?.quantity ?? row.maxQty)
+          updatePayload.store_quantity = Math.max(0, cur - row.qty)
+        } else if (stockLocation === 'production') {
+          const cur = Number(lp?.production_quantity ?? 0)
+          updatePayload.production_quantity = Math.max(0, cur - row.qty)
+        } else {
+          // No location specified — deduct from store first, then production
+          const storeQty = Number(lp?.store_quantity ?? lp?.quantity ?? row.maxQty)
+          const prodQty  = Number(lp?.production_quantity ?? 0)
+          const fromStore = Math.min(row.qty, storeQty)
+          const fromProd  = Math.max(0, row.qty - fromStore)
+          updatePayload.store_quantity      = Math.max(0, storeQty - fromStore)
+          updatePayload.production_quantity = Math.max(0, prodQty  - fromProd)
+        }
         const { error: upErr } = await sb.from('products')
-          .update({ quantity: newQty, updated_at: new Date().toISOString() })
+          .update(updatePayload)
           .eq('id', row.product_id)
         if (upErr) {
-          // Transactions are already inserted; report clearly.
           setErr(`Sale recorded but failed updating stock for ${lp?.name ?? row.name}: ${upErr.message}`)
           return
         }
@@ -563,13 +583,40 @@ export default function POS() {
                       <input className="input input-mono" placeholder="Reference / approval #" value={paymentReference} onChange={e => setPaymentReference(e.target.value)} />
                     </Field>
                   )}
-                  <Field label="Stock Location">
-                    <select className="input" value={stockLocation} onChange={e => setStockLocation(e.target.value as StockLocation | '')}>
-                      <option value="">— Select location —</option>
-                      {(Object.entries(STOCK_LOCATION_LABEL) as [StockLocation, string][]).map(([v, l]) => (
-                        <option key={v} value={v}>{l}</option>
-                      ))}
-                    </select>
+                  <Field label="Fulfil From" hint="Which location is fulfilling this sale?">
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
+                      {([['', 'Auto'], ['store', 'Store'], ['production', 'Production']] as [StockLocation | '', string][]).map(([val, label]) => {
+                        const isSelected = stockLocation === val
+                        // Compute total available for this location across all cart items
+                        const totalAvail = val === '' ? null
+                          : cart.reduce((sum, row) => {
+                              const prod = products.find(p => p.id === row.product_id)
+                              if (!prod) return sum
+                              const qty = val === 'store'
+                                ? ((prod as any).store_quantity ?? prod.quantity)
+                                : ((prod as any).production_quantity ?? 0)
+                              return sum + qty
+                            }, 0)
+                        return (
+                          <button key={val} type="button"
+                            onClick={() => setStockLocation(val)}
+                            style={{
+                              padding: '10px 8px', borderRadius: 'var(--radius)', textAlign: 'center',
+                              border: `2px solid ${isSelected ? 'var(--primary)' : 'var(--border)'}`,
+                              background: isSelected ? 'var(--c-primary-dim, #e8f0fe)' : 'var(--bg)',
+                              cursor: 'pointer', transition: 'all .15s',
+                            }}>
+                            <p style={{ fontWeight: 700, fontSize: 12.5, color: isSelected ? 'var(--primary)' : 'var(--ink)' }}>{label}</p>
+                            {totalAvail !== null && (
+                              <p style={{ fontSize: 11, color: totalAvail === 0 ? 'var(--red)' : 'var(--c-text3)', marginTop: 2 }}>
+                                {totalAvail} units
+                              </p>
+                            )}
+                            {val === '' && <p style={{ fontSize: 10.5, color: 'var(--c-text4)', marginTop: 2 }}>Store first</p>}
+                          </button>
+                        )
+                      })}
+                    </div>
                   </Field>
                 </div>
               </div>

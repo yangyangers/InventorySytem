@@ -1,7 +1,7 @@
 // ── Outstanding Collectibles ──────────────────────────────────────────────
 import { useEffect, useState, useCallback } from 'react'
 import {
-  AlertCircle, CheckCircle2, Hash, Calendar, User, Phone,
+  AlertCircle, CheckCircle2, Calendar, Hash, User, Phone,
   CreditCard, MapPin, ChevronDown, ChevronUp, Package, Wallet, Clock, Plus,
 } from 'lucide-react'
 import { sb } from '@/lib/supabase'
@@ -142,7 +142,9 @@ export default function Collectibles() {
     for (const [refNumber, txs] of map.entries()) {
       const sorted      = [...txs].sort((a, b) => b.created_at.localeCompare(a.created_at))
       const first       = sorted[0]
-      const total       = sorted.reduce((s, t) => s + ((t.products as any)?.selling_price ?? 0) * t.quantity, 0)
+      const subtotal     = sorted.reduce((s, t) => s + ((t.products as any)?.selling_price ?? 0) * t.quantity, 0)
+      const discount     = first.discount ?? 0
+      const total        = Math.max(0, subtotal - discount)
       const amountPaid  = first.amount_paid ?? null
       const outstanding = amountPaid !== null ? Math.max(0, total - amountPaid) : total
 
@@ -164,7 +166,7 @@ export default function Collectibles() {
       })
     }
 
-    built.sort((a, b) => a.date.localeCompare(b.date))
+    built.sort((a, b) => b.date.localeCompare(a.date))
     setGroups(built)
     setLoading(false)
   }, [user])
@@ -567,7 +569,7 @@ function TransactionList({ groups, loading, expanded, setExpanded, accentColor, 
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
       {groups.map(g => {
         const isOpen      = expanded === g.refNumber
         const paidPct     = g.total > 0 ? Math.min(100, ((g.amountPaid ?? 0) / g.total) * 100) : 0
@@ -578,130 +580,75 @@ function TransactionList({ groups, loading, expanded, setExpanded, accentColor, 
           <div key={g.refNumber} className="card" style={{ overflow: 'hidden', border: `1.5px solid ${isOpen ? accent : 'var(--border)'}`, transition: 'border-color .15s' }}>
 
             {/* ── Card header ── */}
-            <div style={{ padding: '16px 20px' }}>
-
-              {/* Row 1: Date/Ref · Customer · Chips · Chevron */}
-              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16, marginBottom: 14 }}>
-
-                {/* Date + ref */}
-                <div style={{ minWidth: 140, flexShrink: 0 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 4 }}>
-                    <Calendar size={12} style={{ color: 'var(--c-text4)' }} />
-                    <span style={{ fontSize: 13, fontWeight: 800, color: 'var(--ink)' }}>{fmtDate(g.date)}</span>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                    <Hash size={10} style={{ color: 'var(--c-text4)' }} />
-                    <code style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--c-text4)' }}>{g.refNumber}</code>
-                  </div>
+            <div
+              style={{ padding: '14px 18px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 14 }}
+              onClick={() => setExpanded(isOpen ? null : g.refNumber)}
+            >
+              {/* Left: customer + date */}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2 }}>
+                  <span style={{ fontWeight: 800, fontSize: 14.5, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{g.customerName}</span>
+                  {g.customerPhone && <span style={{ fontSize: 12, color: 'var(--c-text4)', flexShrink: 0 }}>{g.customerPhone}</span>}
                 </div>
-
-                {/* Customer */}
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <User size={12} style={{ color: 'var(--c-text4)', flexShrink: 0 }} />
-                    <span style={{ fontWeight: 800, fontSize: 15, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{g.customerName}</span>
-                  </div>
-                  {g.customerPhone && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 3 }}>
-                      <Phone size={11} style={{ color: 'var(--c-text4)', flexShrink: 0 }} />
-                      <span style={{ fontSize: 12.5, color: 'var(--c-text3)' }}>{g.customerPhone}</span>
-                    </div>
-                  )}
-                  {/* Customer total balance chip */}
-                  {custMap && custMap.has(g.customerName) && custMap.get(g.customerName)!.txCount > 1 && (
-                    <div style={{ marginTop: 6, display: 'inline-flex', alignItems: 'center', gap: 5, background: 'var(--c-teal-dim)', border: '1px solid rgba(91,148,144,.4)', borderRadius: 6, padding: '3px 9px' }}>
-                      <Wallet size={9} style={{ color: 'var(--teal)', flexShrink: 0 }} />
-                      <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--teal)' }}>
-                        Customer total: {money(custMap.get(g.customerName)!.outstanding)}
-                      </span>
-                      <span style={{ fontSize: 10.5, color: 'rgba(91,148,144,.7)' }}>
-                        · {custMap.get(g.customerName)!.txCount} transactions
-                      </span>
-                    </div>
-                  )}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ fontSize: 12, color: 'var(--c-text4)' }}>{fmtDate(g.date)}</span>
+                  <code style={{ fontFamily: 'var(--mono)', fontSize: 10.5, color: 'var(--c-text4)', background: 'var(--bg)', borderRadius: 4, padding: '1px 5px' }}>{g.refNumber}</code>
+                  {g.paymentMethod && <span style={{ fontSize: 11, color: 'var(--teal)', fontWeight: 600 }}>{PAYMENT_METHOD_LABEL[g.paymentMethod as PaymentMethod]}</span>}
+                  {g.stockLocation && <span style={{ fontSize: 11, color: 'var(--c-text3)', fontWeight: 600 }}>{STOCK_LOCATION_LABEL[g.stockLocation as StockLocation]}</span>}
                 </div>
-
-                {/* Chips */}
-                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center', flexShrink: 0 }}>
-                  {g.paymentMethod && (
-                    <span style={{ fontSize: 11.5, fontWeight: 700, background: 'var(--c-teal-dim)', color: 'var(--teal)', borderRadius: 6, padding: '3px 10px' }}>
-                      {PAYMENT_METHOD_LABEL[g.paymentMethod as PaymentMethod]}
-                    </span>
-                  )}
-                  {g.stockLocation && (
-                    <span style={{ fontSize: 11.5, fontWeight: 700, background: 'var(--bg)', color: 'var(--c-text2)', borderRadius: 6, padding: '3px 10px', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 4 }}>
-                      <MapPin size={10} />{STOCK_LOCATION_LABEL[g.stockLocation as StockLocation]}
-                    </span>
-                  )}
-                  {isNoPayment
-                    ? <span style={{ fontSize: 11.5, fontWeight: 800, background: '#fee2e2', color: '#dc2626', borderRadius: 6, padding: '3px 10px', border: '1px solid #fca5a5', display: 'flex', alignItems: 'center', gap: 4 }}>
-                        <Clock size={10} /> No Payment
-                      </span>
-                    : <span style={{ fontSize: 11.5, fontWeight: 800, background: '#fef3c7', color: '#92400e', borderRadius: 6, padding: '3px 10px', border: '1px solid #fbbf24' }}>
-                        Partial
-                      </span>
-                  }
-                </div>
-
-                {/* Expand toggle */}
-                <button
-                  type="button"
-                  onClick={() => setExpanded(isOpen ? null : g.refNumber)}
-                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--c-text4)', padding: 4, flexShrink: 0, marginTop: 2 }}
-                >
-                  {isOpen ? <ChevronUp size={17} /> : <ChevronDown size={17} />}
-                </button>
               </div>
 
-              {/* Row 2: Amounts + Progress + Pay button */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-
-                {/* Amount blocks */}
-                <div style={{ display: 'flex', gap: 0, flex: 1, borderRadius: 12, overflow: 'hidden', border: '1px solid var(--border)', minWidth: 300 }}>
-                  <div style={{ flex: 1, padding: '10px 16px', background: 'var(--bg)', borderRight: '1px solid var(--border)', textAlign: 'center' }}>
-                    <p style={{ fontSize: 10, fontWeight: 700, color: 'var(--c-text4)', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 4 }}>Total</p>
-                    <p style={{ fontWeight: 800, fontSize: 15, color: 'var(--ink)' }}>{money(g.total)}</p>
-                  </div>
-                  <div style={{ flex: 1, padding: '10px 16px', background: '#f0fdf4', borderRight: '1px solid #bbf7d0', textAlign: 'center' }}>
-                    <p style={{ fontSize: 10, fontWeight: 700, color: '#16a34a', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 4 }}>Paid</p>
-                    <p style={{ fontWeight: 800, fontSize: 15, color: '#16a34a' }}>{money(g.amountPaid ?? 0)}</p>
-                  </div>
-                  <div style={{ flex: 1, padding: '10px 16px', background: isNoPayment ? '#fff1f2' : '#fffbeb', borderLeft: `1px solid ${isNoPayment ? '#fecdd3' : '#fde68a'}`, textAlign: 'center' }}>
-                    <p style={{ fontSize: 10, fontWeight: 700, color: isNoPayment ? '#dc2626' : '#92400e', textTransform: 'uppercase', letterSpacing: '.06em', marginBottom: 4 }}>Balance Due</p>
-                    <p style={{ fontWeight: 900, fontSize: 17, color: accent, letterSpacing: '-.01em' }}>{money(g.outstanding)}</p>
-                  </div>
+              {/* Middle: amounts */}
+              <div style={{ display: 'flex', gap: 20, alignItems: 'center', flexShrink: 0 }}>
+                <div style={{ textAlign: 'right' }}>
+                  <p style={{ fontSize: 10, fontWeight: 700, color: '#16a34a', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 1 }}>Paid</p>
+                  <p style={{ fontWeight: 700, fontSize: 13.5, color: '#16a34a' }}>{money(g.amountPaid ?? 0)}</p>
                 </div>
-
-                {/* Progress + % */}
-                <div style={{ minWidth: 120, flexShrink: 0 }}>
-                  <div style={{ height: 6, borderRadius: 99, background: '#f3f4f6', overflow: 'hidden', marginBottom: 4 }}>
-                    <div style={{ height: '100%', width: `${paidPct}%`, background: paidPct === 0 ? '#fca5a5' : '#16a34a', borderRadius: 99, transition: 'width .4s ease' }} />
-                  </div>
-                  <p style={{ fontSize: 11, color: 'var(--c-text4)', fontWeight: 600, textAlign: 'center' }}>{Math.round(paidPct)}% paid</p>
+                <div style={{ textAlign: 'right' }}>
+                  <p style={{ fontSize: 10, fontWeight: 700, color: isNoPayment ? '#dc2626' : '#92400e', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 1 }}>Balance Due</p>
+                  <p style={{ fontWeight: 900, fontSize: 16, color: accent }}>{money(g.outstanding)}</p>
                 </div>
+              </div>
 
-                {/* Pay button */}
-                <button
-                  type="button"
-                  onClick={() => openPayModal(g)}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 7,
-                    padding: '10px 20px', borderRadius: 10, cursor: 'pointer',
-                    background: '#5b9490', color: '#fff',
-                    border: 'none', fontFamily: 'var(--font)',
-                    fontSize: 13.5, fontWeight: 700,
-                    boxShadow: '0 2px 10px rgba(91,148,144,.35)',
-                    transition: 'all .15s',
-                    flexShrink: 0,
-                    whiteSpace: 'nowrap',
-                  }}
-                  onMouseEnter={e => { e.currentTarget.style.background = '#2e8b80'; e.currentTarget.style.boxShadow = '0 4px 14px rgba(91,148,144,.45)' }}
-                  onMouseLeave={e => { e.currentTarget.style.background = '#5b9490'; e.currentTarget.style.boxShadow = '0 2px 10px rgba(91,148,144,.35)' }}
-                >
-                  <Plus size={14} /> Record Payment
-                </button>
+              {/* Status badge */}
+              <div style={{ flexShrink: 0 }}>
+                {isNoPayment
+                  ? <span style={{ fontSize: 11, fontWeight: 800, background: '#fee2e2', color: '#dc2626', borderRadius: 6, padding: '3px 10px', border: '1px solid #fca5a5', whiteSpace: 'nowrap' }}>No Payment</span>
+                  : <span style={{ fontSize: 11, fontWeight: 800, background: '#fef3c7', color: '#92400e', borderRadius: 6, padding: '3px 10px', border: '1px solid #fbbf24' }}>Partial</span>
+                }
+              </div>
+
+              {/* Pay button */}
+              <button
+                type="button"
+                onClick={e => { e.stopPropagation(); openPayModal(g) }}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  padding: '8px 16px', borderRadius: 8, cursor: 'pointer',
+                  background: '#5b9490', color: '#fff',
+                  border: 'none', fontFamily: 'var(--font)',
+                  fontSize: 13, fontWeight: 700,
+                  transition: 'background .15s',
+                  flexShrink: 0, whiteSpace: 'nowrap',
+                }}
+                onMouseEnter={e => (e.currentTarget.style.background = '#2e8b80')}
+                onMouseLeave={e => (e.currentTarget.style.background = '#5b9490')}
+              >
+                <Plus size={13} /> Record Payment
+              </button>
+
+              {/* Chevron */}
+              <div style={{ color: 'var(--c-text4)', flexShrink: 0 }}>
+                {isOpen ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
               </div>
             </div>
+
+            {/* Progress bar */}
+            {!isOpen && (
+              <div style={{ height: 3, background: 'var(--bg)' }}>
+                <div style={{ height: '100%', width: `${paidPct}%`, background: paidPct === 0 ? '#fca5a5' : '#16a34a', transition: 'width .4s ease' }} />
+              </div>
+            )}
 
             {/* Expanded detail */}
             {isOpen && (
@@ -742,50 +689,10 @@ function TransactionList({ groups, loading, expanded, setExpanded, accentColor, 
                   )
                 })}
 
-                <div style={{ padding: '12px 18px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16, background: 'var(--c-white)' }}>
-                  {/* Customer total balance — left side */}
-                  {custMap && custMap.has(g.customerName) && custMap.get(g.customerName)!.txCount > 1 && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--c-teal-dim)', border: '1px solid rgba(91,148,144,.4)', borderRadius: 8, padding: '7px 12px' }}>
-                      <Wallet size={13} style={{ color: 'var(--teal)', flexShrink: 0 }} />
-                      <div>
-                        <p style={{ fontSize: 9.5, fontWeight: 700, color: 'var(--teal)', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 1 }}>
-                          {g.customerName}'s total remaining balance
-                        </p>
-                        <p style={{ fontWeight: 900, fontSize: 15, color: '#2e8b80', letterSpacing: '-.01em' }}>
-                          {money(custMap.get(g.customerName)!.outstanding)}
-                          <span style={{ fontSize: 11, fontWeight: 500, color: 'rgba(91,148,144,.7)', marginLeft: 6 }}>
-                            across {custMap.get(g.customerName)!.txCount} transactions
-                          </span>
-                        </p>
-                      </div>
-                    </div>
-                  )}
-                  {/* Amounts + Record Payment button */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 20, flexWrap: 'wrap', marginLeft: 'auto' }}>
-                    <div style={{ display: 'flex', gap: 28, flexWrap: 'wrap' }}>
-                      <FooterAmt label="Subtotal"    val={money(g.total)}           color="var(--ink)" />
-                      <FooterAmt label="Amount Paid" val={money(g.amountPaid ?? 0)} color="#16a34a"    />
-                      <FooterAmt label="Balance Due" val={money(g.outstanding)}     color={accent}     bold />
-                    </div>
-                    <button
-                      type="button"
-                      onClick={e => { e.stopPropagation(); openPayModal(g) }}
-                      style={{
-                        display: 'flex', alignItems: 'center', gap: 6,
-                        padding: '8px 16px', borderRadius: 8, cursor: 'pointer',
-                        background: '#5b9490', color: '#fff',
-                        border: 'none', fontFamily: 'var(--font)',
-                        fontSize: 13, fontWeight: 700,
-                        boxShadow: '0 2px 8px rgba(124,58,237,.25)',
-                        transition: 'background .15s',
-                        flexShrink: 0,
-                      }}
-                      onMouseEnter={e => (e.currentTarget.style.background = '#2e8b80')}
-                      onMouseLeave={e => (e.currentTarget.style.background = '#5b9490')}
-                    >
-                      <Plus size={13} /> Record Payment
-                    </button>
-                  </div>
+                <div style={{ padding: '12px 18px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', flexWrap: 'wrap', gap: 20, background: 'var(--c-white)' }}>
+                  <FooterAmt label="Subtotal"    val={money(g.total)}           color="var(--ink)" />
+                  <FooterAmt label="Amount Paid" val={money(g.amountPaid ?? 0)} color="#16a34a"    />
+                  <FooterAmt label="Balance Due" val={money(g.outstanding)}     color={accent}     bold />
                 </div>
               </div>
             )}

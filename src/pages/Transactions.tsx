@@ -48,25 +48,28 @@ export function Transactions() {
         // Fetch ALL rows sharing those ref numbers (not just current page)
         const { data: allRef } = await sb
           .from('transactions')
-          .select('reference_number, amount_paid, quantity, products(selling_price)')
+          .select('reference_number, amount_paid, discount, quantity, products(selling_price)')
           .eq('business_id', user.business_id)
           .eq('transaction_type', 'stock_out')
           .in('reference_number', refs)
         const allRefRows = (allRef as any[]) ?? []
         // Group by ref#
-        const map = new Map<string, { groupTotal: number; amountPaid: number | null; outstanding: number }>()
+        const map = new Map<string, { groupTotal: number; discount: number; amountPaid: number | null; outstanding: number }>()
         for (const r of allRefRows) {
           const ref = r.reference_number as string
-          if (!map.has(ref)) map.set(ref, { groupTotal: 0, amountPaid: r.amount_paid ?? null, outstanding: 0 })
+          if (!map.has(ref)) map.set(ref, { groupTotal: 0, discount: 0, amountPaid: r.amount_paid ?? null, outstanding: 0 })
           const entry = map.get(ref)!
           const price = (r.products as any)?.selling_price ?? 0
           entry.groupTotal += price * r.quantity
-          // amount_paid is same for all rows in a group — keep first non-null
+          // discount and amount_paid are shared across all rows in a group — keep first non-null
+          if (entry.discount === 0 && r.discount) entry.discount = Math.max(0, Number(r.discount) || 0)
           if (entry.amountPaid === null && r.amount_paid !== null) entry.amountPaid = r.amount_paid
         }
         // Compute outstanding per group
+        // null amount_paid means the customer paid in full — outstanding is 0
         for (const [, v] of map) {
-          v.outstanding = v.amountPaid !== null ? Math.max(0, v.groupTotal - v.amountPaid) : v.groupTotal
+          const totalDue = Math.max(0, v.groupTotal - v.discount)
+          v.outstanding = v.amountPaid !== null ? Math.max(0, totalDue - v.amountPaid) : 0
         }
         setRefBalanceMap(map)
       } else {

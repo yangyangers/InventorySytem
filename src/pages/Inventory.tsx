@@ -65,8 +65,8 @@ function StockBar({ quantity, reorderLevel }: { quantity: number; reorderLevel: 
 }
 // ─────────────────────────────────────────────────────────────────────────────
 
-const BLANK = { sku:'', name:'', description:'', category_id:'', sub_category_id:'', supplier_id:'', unit:'pcs', quantity:'0', reorder_level:'10', cost_price:'0', selling_price:'0' }
-const BLANK_TX = { type: 'stock_in' as 'stock_in'|'stock_out'|'adjustment', qty:1, notes:'', voucher_number:'', reference_number:'', date_of_sale:'', customer_name:'', customer_phone:'', payment_method: '' as PaymentMethod|'', payment_reference:'', amount_paid:'', stock_location:'' as StockLocation|'' }
+const BLANK = { sku:'', name:'', description:'', category_id:'', sub_category_id:'', supplier_id:'', unit:'pcs', quantity:'0', initial_location:'store', reorder_level:'10', cost_price:'0', selling_price:'0' }
+const BLANK_TX = { type: 'stock_in' as 'stock_in'|'stock_out'|'adjustment'|'transfer', qty:1, notes:'', voucher_number:'', reference_number:'', date_of_sale:'', customer_name:'', customer_phone:'', payment_method: '' as PaymentMethod|'', payment_reference:'', amount_paid:'', stock_location:'' as StockLocation|'', transfer_from: '' as StockLocation|'', transfer_to: '' as StockLocation|'' }
 
 export default function Inventory() {
   const { user } = useAuth()
@@ -213,7 +213,7 @@ export default function Inventory() {
       sku: p.sku, name: p.name, description: p.description??'',
       category_id: isSubCat ? (catObj?.parent_id ?? '') : catId,
       sub_category_id: isSubCat ? catId : '',
-      supplier_id: p.supplier_id??'', unit: p.unit, quantity: String(p.quantity),
+      supplier_id: p.supplier_id??'', unit: p.unit, quantity: String(p.quantity), initial_location: 'store',
       reorder_level: String(p.reorder_level), cost_price: String(p.cost_price), selling_price: String(p.selling_price)
     })
     setErr(''); setOk(''); setModal('edit')
@@ -270,7 +270,8 @@ export default function Inventory() {
           if (parsedForm.quantity > 0) {
             const newQty = existing.quantity + parsedForm.quantity
             const voucherNum = genVoucherNumber()
-            await sb.from('products').update({ quantity: newQty, updated_at: new Date().toISOString() }).eq('id', existing.id)
+            const existingStore = (existing as any).store_quantity ?? existing.quantity
+            await sb.from('products').update({ store_quantity: existingStore + parsedForm.quantity, updated_at: new Date().toISOString() }).eq('id', existing.id)
             await sb.from('transactions').insert({ product_id: existing.id, business_id: user!.business_id, transaction_type: 'stock_in', quantity: parsedForm.quantity, voucher_number: voucherNum, reference_number: null, notes: 'Stock added via Add Product (same name matched)', performed_by: user!.id })
             toast.success('Stock updated!', `${parsedForm.quantity} ${existing.unit} added to existing "${parsedForm.name}" (SKU: ${existing.sku})`)
           } else {
@@ -291,7 +292,11 @@ export default function Inventory() {
         if (error) { setErr(error.message); return }
         if (parsedForm.quantity > 0 && created) {
           const voucherNum = genVoucherNumber()
-          await sb.from('transactions').insert({ product_id: created.id, business_id: user!.business_id, transaction_type: 'stock_in', quantity: parsedForm.quantity, voucher_number: voucherNum, reference_number: null, notes: 'Initial stock entry', performed_by: user!.id })
+          const isStore = parsedForm.initial_location !== 'production'
+          const storeQty = isStore ? parsedForm.quantity : 0
+          const prodQty  = isStore ? 0 : parsedForm.quantity
+          await sb.from('products').update({ store_quantity: storeQty, production_quantity: prodQty }).eq('id', created.id)
+          await sb.from('transactions').insert({ product_id: created.id, business_id: user!.business_id, transaction_type: 'stock_in', quantity: parsedForm.quantity, voucher_number: voucherNum, reference_number: null, notes: 'Initial stock entry', stock_location: parsedForm.initial_location, performed_by: user!.id })
         }
         toast.success('Product added!', parsedForm.name + ' was added to inventory')
 
@@ -314,30 +319,73 @@ export default function Inventory() {
     try {
       const p = selected!; const qty = Number(tx.qty)
       if (!qty || qty < 1) { setErr('Quantity must be at least 1'); return }
-      let newQty = p.quantity
-      if (tx.type === 'stock_in')       newQty += qty
-      else if (tx.type === 'stock_out') { if (qty > p.quantity) { setErr(`Only ${p.quantity} ${p.unit} available`); return }; newQty -= qty }
-      else                               newQty = qty
-      const isIn  = tx.type === 'stock_in'
-      const isOut = tx.type === 'stock_out'
+
+      const isIn       = tx.type === 'stock_in'
+      const isOut      = tx.type === 'stock_out'
+      const isTransfer = tx.type === 'transfer'
+      const isAdj      = tx.type === 'adjustment'
+
+      let newStoreQty      = p.store_quantity ?? 0
+      let newProductionQty = p.production_quantity ?? 0
+
+      if (isTransfer) {
+        // ── Transfer: move stock between locations ──
+        if (!tx.transfer_from || !tx.transfer_to) { setErr('Select both From and To locations for a transfer.'); return }
+        if (tx.transfer_from === tx.transfer_to)  { setErr('From and To locations must be different.'); return }
+        const srcQty = tx.transfer_from === 'production' ? newProductionQty : newStoreQty
+        if (qty > srcQty) { setErr(`Only ${srcQty} ${p.unit} available in ${tx.transfer_from}.`); return }
+        if (tx.transfer_from === 'production') { newProductionQty -= qty; newStoreQty += qty }
+        else                                   { newStoreQty -= qty; newProductionQty += qty }
+      } else if (isIn) {
+        // ── Stock In: add to specified location ──
+        if (!tx.stock_location) { setErr('Please select a stock location.'); return }
+        if (tx.stock_location === 'production') newProductionQty += qty
+        else                                    newStoreQty      += qty
+      } else if (isOut) {
+        // ── Stock Out: deduct from specified location (or total if unspecified) ──
+        if (!tx.stock_location) { setErr('Please select a stock location.'); return }
+        const locQty = tx.stock_location === 'production' ? newProductionQty : newStoreQty
+        if (qty > locQty) { setErr(`Only ${locQty} ${p.unit} available in ${tx.stock_location}.`); return }
+        if (tx.stock_location === 'production') newProductionQty -= qty
+        else                                    newStoreQty      -= qty
+      } else if (isAdj) {
+        // ── Adjustment: set total quantity, distributed to store ──
+        if (!tx.stock_location) { setErr('Please select a stock location to adjust.'); return }
+        if (tx.stock_location === 'production') newProductionQty = qty
+        else                                    newStoreQty      = qty
+      }
+
       const { error } = await sb.from('transactions').insert({
         product_id: p.id, business_id: user!.business_id,
         transaction_type: tx.type, quantity: qty,
-        voucher_number:   isIn  ? (tx.voucher_number || null)   : null,
-        reference_number: isOut ? (tx.reference_number || null) : null,
-        notes: tx.notes||null,
+        voucher_number:   isIn       ? (tx.voucher_number  || null) : null,
+        reference_number: isOut      ? (tx.reference_number || null) : null,
+        notes: tx.notes || null,
         performed_by: user!.id,
-        date_of_sale: isOut ? (tx.date_of_sale||null) : null,
-        customer_name: isOut ? (tx.customer_name||null) : null,
-        customer_phone: isOut ? (tx.customer_phone||null) : null,
-        payment_method: isOut ? (tx.payment_method||null) : null,
-        payment_reference: isOut ? (tx.payment_reference||null) : null,
-        amount_paid: isOut ? (tx.amount_paid !== '' ? Number(tx.amount_paid) : null) : null,
-        stock_location: tx.stock_location||null,
+        date_of_sale:      isOut ? (tx.date_of_sale      || null) : null,
+        customer_name:     isOut ? (tx.customer_name      || null) : null,
+        customer_phone:    isOut ? (tx.customer_phone     || null) : null,
+        payment_method:    isOut ? (tx.payment_method     || null) : null,
+        payment_reference: isOut ? (tx.payment_reference  || null) : null,
+        amount_paid:       isOut ? (tx.amount_paid !== '' ? Number(tx.amount_paid) : null) : null,
+        stock_location: isTransfer
+          ? tx.transfer_from || null   // record the source for audit trail
+          : (tx.stock_location || null),
       })
       if (error) { setErr(error.message); return }
-      await sb.from('products').update({ quantity: newQty, updated_at: new Date().toISOString() }).eq('id', p.id)
-      toast.success('Transaction recorded!', `New quantity: ${newQty} ${p.unit}`)
+
+      await sb.from('products').update({
+        store_quantity:      newStoreQty,
+        production_quantity: newProductionQty,
+        updated_at:          new Date().toISOString()
+      }).eq('id', p.id)
+
+      const newTotal = newStoreQty + newProductionQty
+      toast.success('Transaction recorded!',
+        isTransfer
+          ? `Transferred ${qty} ${p.unit} from ${tx.transfer_from} → ${tx.transfer_to}`
+          : `New quantity: ${newTotal} ${p.unit} (Store: ${newStoreQty}, Production: ${newProductionQty})`
+      )
       closeAll(); loadRows()
     } finally { setSaving(false) }
   }
@@ -356,6 +404,7 @@ export default function Inventory() {
 
   const TX_OPTS = [
     { t: 'stock_in'   as const, label: '▲ Stock In',   color: 'var(--green)', bg: 'var(--c-green-dim)', border: 'var(--green)' },
+    { t: 'transfer'   as const, label: '⇄ Transfer',    color: 'var(--gold)',   bg: 'var(--c-gold-dim)',   border: 'var(--gold)'   },
     { t: 'stock_out'  as const, label: '▼ Stock Out',  color: 'var(--red)',   bg: 'var(--c-red-dim)',   border: 'var(--red)'   },
     { t: 'adjustment' as const, label: '⊙ Adjust',     color: 'var(--teal)',  bg: 'var(--c-teal-dim)',  border: 'var(--teal)'  },
   ]
@@ -418,7 +467,7 @@ export default function Inventory() {
             <thead>
               <tr>
                 <th>Product</th><th>SKU</th><th>{user?.business_id === 'wellprint' ? 'Category / Sub-cat' : 'Category'}</th><th>Supplier</th>
-                <th style={{ textAlign: 'center' }}>Stock</th><th style={{ textAlign: 'center' }}>Status</th><th>Cost</th><th>Selling Price</th>
+                <th style={{ textAlign: 'center' }}>Store Stock</th><th style={{ textAlign: 'center' }}>Production Stock</th><th style={{ textAlign: 'center' }}>Status</th><th>Cost</th><th>Selling Price</th>
                 <th style={{ textAlign: 'right' }}>Actions</th>
               </tr>
             </thead>
@@ -453,8 +502,15 @@ export default function Inventory() {
                       </td>
                       <td style={{ fontSize: 13, color: 'var(--c-text2)' }}>{(p as any).suppliers?.name ?? <span style={{ color: 'var(--c-text4)' }}>—</span>}</td>
                       <td style={{ textAlign: 'center' }}>
-                        <span style={{ fontWeight: 800, color: 'var(--ink)', fontSize: 15, fontFamily: 'var(--font-head)' }}>{p.quantity}</span>
+                        <span style={{ fontWeight: 800, color: 'var(--ink)', fontSize: 15, fontFamily: 'var(--font-head)' }}>{p.store_quantity ?? 0}</span>
                         <span style={{ color: 'var(--c-text3)', fontSize: 12, marginLeft: 4 }}>{p.unit}</span>
+                      </td>
+                      <td style={{ textAlign: 'center' }}>
+                        <span style={{ fontWeight: 800, color: 'var(--ink)', fontSize: 15, fontFamily: 'var(--font-head)' }}>{p.production_quantity ?? 0}</span>
+                        <span style={{ color: 'var(--c-text3)', fontSize: 12, marginLeft: 4 }}>{p.unit}</span>
+                        {(p.production_quantity ?? 0) > 0 && (p.store_quantity ?? 0) === 0 && (
+                          <div style={{ fontSize: 10.5, color: 'var(--gold)', fontWeight: 700, marginTop: 2 }}>Available to transfer</div>
+                        )}
                       </td>
                       <td style={{ textAlign: 'center', verticalAlign: 'middle' }}>
                         <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', width: '100%' }}>
@@ -612,8 +668,8 @@ export default function Inventory() {
                 </select>
               </Field>
             )}
-            <div className="grid-2">
-              {modal === 'add' && (
+            {modal === 'add' && (
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                 <Field label="Initial Quantity" hint="A Stock In transaction will be recorded automatically">
                   <input
                     className="input" type="number" min={0}
@@ -624,7 +680,15 @@ export default function Inventory() {
                     onChange={e => f('quantity', e.target.value)}
                   />
                 </Field>
-              )}
+                <Field label="Initial Location" hint="Where is the initial stock located?">
+                  <select className="input" value={form.initial_location} onChange={e => f('initial_location', e.target.value)}>
+                    <option value="store">Store</option>
+                    <option value="production">Production</option>
+                  </select>
+                </Field>
+              </div>
+            )}
+            <div className="grid-2">
               <Field label="Reorder Level" hint="Alert threshold for low stock">
                 <input
                   className="input" type="number" min={0}
@@ -663,7 +727,7 @@ export default function Inventory() {
       {txModal && selected && (
         <Modal
           title="Record Stock Movement"
-          subtitle={`${selected.name} · ${selected.quantity} ${selected.unit} in stock`}
+          subtitle={`${selected.name} · Store: ${selected.store_quantity ?? 0} · Production: ${selected.production_quantity ?? 0} ${selected.unit}`}
           onClose={closeAll}
           width={460}
           icon={<ArrowLeftRight size={20} />}
@@ -683,13 +747,15 @@ export default function Inventory() {
             {ok  && <Alert msg={ok}  type="ok"  />}
 
             <Field label="Movement Type" required>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginTop: 4 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 8, marginTop: 4 }}>
                 {TX_OPTS.map(({ t, label, color, bg, border }) => (
                   <button key={t} type="button" onClick={() => setTx(p => ({
                     ...p, type: t,
-                    // Auto-generate the right number when switching type
                     voucher_number:   t === 'stock_in'  ? (p.voucher_number  || genVoucherNumber()) : p.voucher_number,
                     reference_number: t === 'stock_out' ? (p.reference_number || genRefNumber())    : p.reference_number,
+                    // Default transfer direction: production → store
+                    transfer_from: t === 'transfer' ? (p.transfer_from || 'production') : p.transfer_from,
+                    transfer_to:   t === 'transfer' ? (p.transfer_to   || 'store')      : p.transfer_to,
                   }))}
                     style={{
                       padding: '12px 8px', borderRadius: 'var(--radius)',
@@ -706,9 +772,106 @@ export default function Inventory() {
               </div>
             </Field>
 
-            <Field label={tx.type === 'adjustment' ? 'Set quantity to' : 'Quantity'} required>
-              <input className="input" type="number" min={1} required value={tx.qty} onChange={e => setTx(p => ({ ...p, qty: Number(e.target.value) }))} />
-            </Field>
+            {/* ── TRANSFER UI ── */}
+            {tx.type === 'transfer' && (
+              <>
+                {/* Stock availability summary */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                  {(['production', 'store'] as StockLocation[]).map(loc => {
+                    const qty = loc === 'production' ? (selected?.production_quantity ?? 0) : (selected?.store_quantity ?? 0)
+                    const isFrom = tx.transfer_from === loc
+                    return (
+                      <div key={loc} style={{
+                        borderRadius: 'var(--radius)', padding: '10px 14px',
+                        border: `2px solid ${isFrom ? 'var(--gold)' : 'var(--border)'}`,
+                        background: isFrom ? 'var(--c-gold-dim)' : 'var(--bg)',
+                      }}>
+                        <p style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em', color: 'var(--c-text3)', marginBottom: 4 }}>{loc}</p>
+                        <p style={{ fontSize: 18, fontWeight: 800, color: qty === 0 ? 'var(--red)' : 'var(--ink)', fontFamily: 'var(--font-head)' }}>
+                          {qty} <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--c-text3)' }}>{selected?.unit}</span>
+                        </p>
+                        {qty === 0 && <p style={{ fontSize: 11, color: 'var(--red)', fontWeight: 600, marginTop: 2 }}>Out of stock</p>}
+                      </div>
+                    )
+                  })}
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div style={{ flex: 1 }}><Field label="From">
+                    <select className="input" value={tx.transfer_from} onChange={e => setTx(p => ({
+                      ...p,
+                      transfer_from: e.target.value as StockLocation,
+                      transfer_to: e.target.value === 'production' ? 'store' : 'production',
+                    }))}>
+                      <option value="production">Production</option>
+                      <option value="store">Store</option>
+                    </select>
+                  </Field></div>
+                  <span style={{ fontSize: 20, color: 'var(--gold)', fontWeight: 700, marginTop: 18, flexShrink: 0 }}>→</span>
+                  <div style={{ flex: 1 }}><Field label="To">
+                    <select className="input" value={tx.transfer_to} onChange={e => setTx(p => ({
+                      ...p,
+                      transfer_to: e.target.value as StockLocation,
+                      transfer_from: e.target.value === 'production' ? 'store' : 'production',
+                    }))}>
+                      <option value="store">Store</option>
+                      <option value="production">Production</option>
+                    </select>
+                  </Field></div>
+                </div>
+                <Field label="Quantity to Transfer" required>
+                  <input
+                    className="input" type="number" min={1}
+                    max={tx.transfer_from === 'production' ? (selected?.production_quantity ?? 0) : (selected?.store_quantity ?? 0)}
+                    required value={tx.qty}
+                    onChange={e => setTx(p => ({ ...p, qty: Number(e.target.value) }))}
+                  />
+                  {(() => {
+                    const available = tx.transfer_from === 'production' ? (selected?.production_quantity ?? 0) : (selected?.store_quantity ?? 0)
+                    return available > 0
+                      ? <p style={{ fontSize: 11.5, color: 'var(--c-text3)', marginTop: 4 }}>Max: {available} {selected?.unit} available in {tx.transfer_from}</p>
+                      : <p style={{ fontSize: 11.5, color: 'var(--red)', marginTop: 4 }}>⚠ No stock in {tx.transfer_from} to transfer</p>
+                  })()}
+                </Field>
+              </>
+            )}
+
+            {/* ── STOCK IN / OUT / ADJUSTMENT ── */}
+            {tx.type !== 'transfer' && (
+              <Field label={tx.type === 'adjustment' ? 'Set quantity to' : 'Quantity'} required>
+                <input className="input" type="number" min={1} required value={tx.qty} onChange={e => setTx(p => ({ ...p, qty: Number(e.target.value) }))} />
+              </Field>
+            )}
+
+            {/* Location selector for stock_in, stock_out, adjustment */}
+            {(tx.type === 'stock_in' || tx.type === 'stock_out' || tx.type === 'adjustment') && (
+              <Field label="Stock Location" required hint={
+                tx.type === 'stock_in'   ? 'Where is this stock being received?' :
+                tx.type === 'stock_out'  ? 'Which location is fulfilling this sale?' :
+                'Which location are you adjusting?'
+              }>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                  {(['store', 'production'] as StockLocation[]).map(loc => {
+                    const qty = loc === 'production' ? (selected?.production_quantity ?? 0) : (selected?.store_quantity ?? 0)
+                    const isSelected = tx.stock_location === loc
+                    return (
+                      <button key={loc} type="button"
+                        onClick={() => setTx(p => ({ ...p, stock_location: loc }))}
+                        style={{
+                          padding: '11px 12px', borderRadius: 'var(--radius)', textAlign: 'left',
+                          border: `2px solid ${isSelected ? 'var(--primary)' : 'var(--border)'}`,
+                          background: isSelected ? 'var(--c-primary-dim, #e8f0fe)' : 'var(--bg)',
+                          cursor: 'pointer', transition: 'all .15s',
+                        }}>
+                        <p style={{ fontWeight: 700, fontSize: 13, color: isSelected ? 'var(--primary)' : 'var(--ink)', textTransform: 'capitalize' }}>{loc}</p>
+                        <p style={{ fontSize: 11.5, color: qty === 0 ? 'var(--red)' : 'var(--c-text3)', marginTop: 2 }}>
+                          {qty} {selected?.unit} in stock
+                        </p>
+                      </button>
+                    )
+                  })}
+                </div>
+              </Field>
+            )}
 
             {/* Voucher Number — shown for Stock IN */}
             {tx.type === 'stock_in' && (
@@ -726,79 +889,55 @@ export default function Inventory() {
             <Field label="Notes">
               <textarea className="input" rows={2} placeholder="Optional notes…" value={tx.notes} onChange={e => setTx(p => ({ ...p, notes: e.target.value }))} />
             </Field>
+
+            {/* Sale Details — Stock Out only */}
             {tx.type === 'stock_out' && (
-              <>
-                <div style={{ borderTop: '1px solid var(--border)', paddingTop: 14, marginTop: -4 }}>
-                  <p style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--c-text3)', letterSpacing: '.07em', textTransform: 'uppercase', marginBottom: 12 }}>Sale Details</p>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 13 }}>
-                    <div className="grid-2">
-                      <Field label="Reference Number" hint="Customer receipt number">
-                        <input className="input input-mono" placeholder="REF-YYYYMMDD-0001" value={tx.reference_number} onChange={e => setTx(p => ({ ...p, reference_number: e.target.value }))} style={{ fontWeight: 700 }} />
-                      </Field>
-                      <Field label="Date of Sale">
-                        <input className="input" type="date" value={tx.date_of_sale} onChange={e => setTx(p => ({ ...p, date_of_sale: e.target.value }))} />
-                      </Field>
-                    </div>
-                    <div className="grid-2">
-                      <Field label="Customer Name">
-                        <select
-                          className="input"
-                          value={tx.customer_name}
-                          onChange={e => {
-                            const name = e.target.value
-                            const match = custs.find(c => c.name === name)
-                            setTx(p => ({ ...p, customer_name: name, customer_phone: match?.phone ?? p.customer_phone }))
-                          }}
-                        >
-                          <option value="">— Select customer —</option>
-                          {custs.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
-                        </select>
-                      </Field>
-                      <Field label="Phone Number">
-                        <input className="input" placeholder="+63 9XX XXX XXXX" value={tx.customer_phone} onChange={e => setTx(p => ({ ...p, customer_phone: e.target.value }))} />
-                      </Field>
-                    </div>
-                    <>
-                        <div className="grid-2">
-                          <Field label="Payment Method">
-                            <select className="input" value={tx.payment_method} onChange={e => setTx(p => ({ ...p, payment_method: e.target.value as PaymentMethod | '' }))}>
-                              <option value="">— Select method —</option>
-                              {(Object.entries(PAYMENT_METHOD_LABEL) as [PaymentMethod, string][]).map(([v, l]) => (
-                                <option key={v} value={v}>{l}</option>
-                              ))}
-                            </select>
-                          </Field>
-                          <Field label="Payment Reference #" hint="e.g. GCash ref, card approval code">
-                            <input className="input input-mono" placeholder="Reference / approval #" value={tx.payment_reference} onChange={e => setTx(p => ({ ...p, payment_reference: e.target.value }))} />
-                          </Field>
-                        </div>
-                        <div className="grid-2">
-                          <Field label="Amount Paid (₱)" hint="Leave blank if fully paid">
-                            <input className="input" type="number" min={0} step="0.01" placeholder="0.00" value={tx.amount_paid} onChange={e => setTx(p => ({ ...p, amount_paid: e.target.value }))} />
-                          </Field>
-                          <Field label="Stock Location">
-                            <select className="input" value={tx.stock_location} onChange={e => setTx(p => ({ ...p, stock_location: e.target.value as StockLocation | '' }))}>
-                              <option value="">— Select location —</option>
-                              {(Object.entries(STOCK_LOCATION_LABEL) as [StockLocation, string][]).map(([v, l]) => (
-                                <option key={v} value={v}>{l}</option>
-                              ))}
-                            </select>
-                          </Field>
-                        </div>
-                      </>
+              <div style={{ borderTop: '1px solid var(--border)', paddingTop: 14, marginTop: -4 }}>
+                <p style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--c-text3)', letterSpacing: '.07em', textTransform: 'uppercase', marginBottom: 12 }}>Sale Details</p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 13 }}>
+                  <div className="grid-2">
+                    <Field label="Reference Number" hint="Customer receipt number">
+                      <input className="input input-mono" placeholder="REF-YYYYMMDD-0001" value={tx.reference_number} onChange={e => setTx(p => ({ ...p, reference_number: e.target.value }))} style={{ fontWeight: 700 }} />
+                    </Field>
+                    <Field label="Date of Sale">
+                      <input className="input" type="date" value={tx.date_of_sale} onChange={e => setTx(p => ({ ...p, date_of_sale: e.target.value }))} />
+                    </Field>
+                  </div>
+                  <div className="grid-2">
+                    <Field label="Customer Name">
+                      <select className="input" value={tx.customer_name} onChange={e => {
+                        const name = e.target.value
+                        const match = custs.find(c => c.name === name)
+                        setTx(p => ({ ...p, customer_name: name, customer_phone: match?.phone ?? p.customer_phone }))
+                      }}>
+                        <option value="">— Select customer —</option>
+                        {custs.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+                      </select>
+                    </Field>
+                    <Field label="Phone Number">
+                      <input className="input" placeholder="+63 9XX XXX XXXX" value={tx.customer_phone} onChange={e => setTx(p => ({ ...p, customer_phone: e.target.value }))} />
+                    </Field>
+                  </div>
+                  <div className="grid-2">
+                    <Field label="Payment Method">
+                      <select className="input" value={tx.payment_method} onChange={e => setTx(p => ({ ...p, payment_method: e.target.value as PaymentMethod | '' }))}>
+                        <option value="">— Select method —</option>
+                        {(Object.entries(PAYMENT_METHOD_LABEL) as [PaymentMethod, string][]).map(([v, l]) => (
+                          <option key={v} value={v}>{l}</option>
+                        ))}
+                      </select>
+                    </Field>
+                    <Field label="Payment Reference #" hint="e.g. GCash ref, card approval code">
+                      <input className="input input-mono" placeholder="Reference / approval #" value={tx.payment_reference} onChange={e => setTx(p => ({ ...p, payment_reference: e.target.value }))} />
+                    </Field>
+                  </div>
+                  <div className="grid-2">
+                    <Field label="Amount Paid (₱)" hint="Leave blank if fully paid">
+                      <input className="input" type="number" min={0} step="0.01" placeholder="0.00" value={tx.amount_paid} onChange={e => setTx(p => ({ ...p, amount_paid: e.target.value }))} />
+                    </Field>
                   </div>
                 </div>
-              </>
-            )}
-            {tx.type === 'stock_in' && (
-              <Field label="Stock Location">
-                <select className="input" value={tx.stock_location} onChange={e => setTx(p => ({ ...p, stock_location: e.target.value as StockLocation | '' }))}>
-                  <option value="">— Select location —</option>
-                  {(Object.entries(STOCK_LOCATION_LABEL) as [StockLocation, string][]).map(([v, l]) => (
-                    <option key={v} value={v}>{l}</option>
-                  ))}
-                </select>
-              </Field>
+              </div>
             )}
           </form>
         </Modal>
